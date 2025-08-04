@@ -227,9 +227,9 @@ const HighLevelAccounts = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Account Details
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                {/* <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   API Configuration
-                </th>
+                </th> */}
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
                 </th>
@@ -258,7 +258,7 @@ const HighLevelAccounts = () => {
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  {/* <td className="px-6 py-4 whitespace-nowrap">
                     <div className="space-y-1">
                       <div className="flex items-center space-x-2">
                         <Key className="w-3 h-3 text-gray-400" />
@@ -268,7 +268,7 @@ const HighLevelAccounts = () => {
                         {account.webhookUrl}
                       </div>
                     </div>
-                  </td>
+                  </td> */}
                   <td className="px-6 py-4 whitespace-nowrap">
                     {account.status === 'connected' ? (
                       <div className="flex items-center space-x-2">
@@ -352,7 +352,7 @@ const HighLevelAccounts = () => {
                   />
                 </div>
               </div>
-              <div>
+              {/* <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   API Key *
                 </label>
@@ -365,8 +365,8 @@ const HighLevelAccounts = () => {
                   placeholder="hl_live_••••••••••••••••••••••••••••••••"
                   required
                 />
-              </div>
-              <div>
+              </div> */}
+              {/* <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Webhook URL *
                 </label>
@@ -379,8 +379,8 @@ const HighLevelAccounts = () => {
                   placeholder="https://services.leadconnectorhq.com/hooks/..."
                   required
                 />
-              </div>
-              <div>
+              </div> */}
+              {/* <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Status
                 </label>
@@ -393,7 +393,7 @@ const HighLevelAccounts = () => {
                   <option value="active">Active</option>
                   <option value="inactive">Inactive</option>
                 </select>
-              </div>
+              </div> */}
             </form>
             <div className="p-6 border-t border-gray-200 flex justify-end space-x-3">
               <button 
@@ -440,7 +440,7 @@ const HighLevelAccounts = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
-              <div>
+              {/* <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   API Key
                 </label>
@@ -451,8 +451,8 @@ const HighLevelAccounts = () => {
                   placeholder="Enter API key"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
-              </div>
-              <div>
+              </div> */}
+              {/* <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Webhook URL
                 </label>
@@ -463,7 +463,7 @@ const HighLevelAccounts = () => {
                   placeholder="https://your-webhook-url.com"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
-              </div>
+              </div> */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Notes (Optional)

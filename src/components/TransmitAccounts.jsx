@@ -406,7 +406,7 @@ const TransmitAccounts = () => {
                   required
                 />
               </div>
-              <div>
+              {/* <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Region
                 </label>
@@ -421,7 +421,7 @@ const TransmitAccounts = () => {
                   <option value="IN">India</option>
                   <option value="CA">Canada</option>
                 </select>
-              </div>
+              </div> */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Leased Numbers
@@ -436,7 +436,7 @@ const TransmitAccounts = () => {
                 />
                 <p className="text-xs text-gray-500 mt-1">Optional: Enter leased phone numbers separated by commas</p>
               </div>
-              <div>
+              {/* <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Status
                 </label>
@@ -449,7 +449,7 @@ const TransmitAccounts = () => {
                   <option value="active">Active</option>
                   <option value="inactive">Inactive</option>
                 </select>
-              </div>
+              </div> */}
             </form>
             <div className="p-6 border-t border-gray-200 flex justify-end space-x-3">
               <button 
@@ -508,7 +508,7 @@ const TransmitAccounts = () => {
                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                />
              </div>
-             <div>
+             {/* <div>
                <label className="block text-sm font-medium text-gray-700 mb-2">
                  Region
                </label>
@@ -523,7 +523,7 @@ const TransmitAccounts = () => {
                  <option value="Canada">Canada</option>
                  <option value="India">India</option>
                </select>
-             </div>
+             </div> */}
              <div>
                <label className="block text-sm font-medium text-gray-700 mb-2">
                  Leased Numbers (comma-separated)
