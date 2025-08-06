@@ -1,33 +1,32 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Lock, User, Eye, EyeOff, Zap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
+import { clearError, loginUser } from '../store/slices/authSlice';
 
-const Login = ({ onLogin }) => {
+const Login = () => {
   const [credentials, setCredentials] = useState({
     username: '',
     password: ''
   });
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
+
+  const {loading, success, error} = useSelector(state=>state.auth)
 
   const navigate = useNavigate();
+  const dispatch = useDispatch();
+
+  useEffect(()=>{
+    if(success){
+      navigate('/dashboard')
+      dispatch(clearError());
+    }
+  }, [success])
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsLoading(true);
-    setError('');
-
-    // Simulate API call
-    setTimeout(() => {
-      if (credentials.username === 'admin' && credentials.password === 'admin123') {
-        onLogin(true);
-        navigate('/dashboard')
-      } else {
-        setError('Invalid username or password');
-      }
-      setIsLoading(false);
-    }, 1000);
+    dispatch(loginUser({username:credentials.username, password:credentials.password}))
   };
 
   const handleChange = (e) => {

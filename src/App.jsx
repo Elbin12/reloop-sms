@@ -19,56 +19,63 @@ import Configuration from "./components/Configuration"
 import Analytics from "./components/Analytics"
 import Logs from "./components/Logs"
 import Layout from "./components/Layout"
+import store from "./store/store"
+import { Provider, useSelector } from "react-redux"
 
-function RequireAuth({ isAuthenticated, children }) {
+function RequireAuth({ children }) {
   const location = useLocation()
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace state={{ from: location }} />
+  const access = useSelector(state => state.auth.access);
+
+  if (!access) {
+    // return <Navigate to="/login" replace state={{ from: location }} />
   }
   return children
 }
 
+function RedirectIfAuth({ children }) {
+  const access = useSelector(state => state.auth.access);
+  const location = useLocation();
+
+  if (access) {
+    return <Navigate to="/dashboard" replace state={{ from: location }} />;
+  }
+
+  return children;
+}
+
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-
-  const handleLogin = () => {
-    setIsAuthenticated(true)
-  }
-
-  const handleLogout = () => {
-    setIsAuthenticated(false)
-  }
-
   return (
-    <Router>
-      <Routes>
-        {/* Public login page */}
-        <Route path="/login" element={<Login onLogin={handleLogin} />} />
+    <Provider store={store}>
+      <Router>
+        <Routes>
+          {/* Public login page */}
+          <Route path="/login" element={<RedirectIfAuth><Login /></RedirectIfAuth>} />
 
-        {/* Protected routes wrapped in Layout */}
-        <Route
-          element={
-            <RequireAuth isAuthenticated={isAuthenticated}>
-              <Layout onLogout={handleLogout}>
-                <Outlet />
-              </Layout>
-            </RequireAuth>
-          }
-        >
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route path="dashboard" element={<Dashboard />} />
-          <Route path="highlevel-accounts" element={<HighLevelAccounts />} />
-          <Route path="transmit-accounts" element={<TransmitAccounts />} />
-          <Route path="account-mapping" element={<AccountManagement />} />
-          <Route path="sms-monitoring" element={<SMSMonitoring />} />
-          {/* <Route path="configuration" element={<Configuration />} />
-          <Route path="analytics" element={<Analytics />} />
-          <Route path="logs" element={<Logs />} /> */}
-          {/* fallback */}
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
-        </Route>
-      </Routes>
-    </Router>
+          {/* Protected routes wrapped in Layout */}
+          <Route
+            element={
+              <RequireAuth >
+                <Layout >
+                  <Outlet />
+                </Layout>
+              </RequireAuth>
+            }
+          >
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="dashboard" element={<Dashboard />} />
+            <Route path="highlevel-accounts" element={<HighLevelAccounts />} />
+            <Route path="transmit-accounts" element={<TransmitAccounts />} />
+            <Route path="account-mapping" element={<AccountManagement />} />
+            <Route path="sms-monitoring" element={<SMSMonitoring />} />
+            {/* <Route path="configuration" element={<Configuration />} />
+            <Route path="analytics" element={<Analytics />} />
+            <Route path="logs" element={<Logs />} /> */}
+            {/* fallback */}
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Route>
+        </Routes>
+      </Router>
+    </Provider>
   )
 }
 

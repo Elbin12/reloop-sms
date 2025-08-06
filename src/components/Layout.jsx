@@ -2,17 +2,25 @@
 
 import { useState } from "react"
 import Sidebar from "./Sidebar"
+import { useDispatch } from "react-redux"
+import { logoutUser } from "../store/slices/authSlice"
 
-const Layout = ({ children, onLogout }) => {
+const Layout = ({ children }) => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
+
+  const dispatch = useDispatch();
 
   const toggleSidebar = () => {
     setIsSidebarCollapsed(!isSidebarCollapsed)
   }
 
+  const logout = ()=>{
+    dispatch(logoutUser());
+  }
+
   return (
     <div className="flex h-screen bg-gray-50">
-      <Sidebar onLogout={onLogout} isCollapsed={isSidebarCollapsed} onToggleCollapse={toggleSidebar} />
+      <Sidebar onLogout={logout} isCollapsed={isSidebarCollapsed} onToggleCollapse={toggleSidebar} />
 
       {/* Main Content */}
       <div
