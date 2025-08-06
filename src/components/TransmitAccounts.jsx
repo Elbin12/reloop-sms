@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { 
-  Plus, 
-  Search, 
-  Filter, 
+import {
+  Plus,
+  Search,
+  Filter,
   MoreHorizontal,
   Radio,
   CheckCircle,
@@ -14,134 +14,38 @@ import {
   Phone,
   X
 } from 'lucide-react';
+import { useCreateTransmitsmsAccountMutation, useDeleteTransmitsmsAccountMutation, useGetTransmitsmsAccountsQuery, useUpdateTransmitsmsAccountMutation } from '../store/api/transmitsmsaccountApi';
 
 const TransmitAccounts = () => {
+  const { data: accounts = [], isLoading, refetch } = useGetTransmitsmsAccountsQuery();
+  const [createAccount] = useCreateTransmitsmsAccountMutation();
+  const [updateAccount] = useUpdateTransmitsmsAccountMutation();
+  const [deleteAccount] = useDeleteTransmitsmsAccountMutation();
+
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddAccount, setShowAddAccount] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingAccount, setEditingAccount] = useState(null);
-  const [accounts, setAccounts] = useState([
-    {
-      id: 1,
-      name: 'Transmit US Main',
-      accountId: 'TR_001',
-      apiSecret: 'ts_secret_••••••••••••••••••••••••••••••••',
-      region: 'US',
-      status: 'connected',
-      lastSync: '1 hour ago',
-      messageCount: 3295,
-      leasedNumbers: ['+1-555-0123', '+1-555-0124', '+1-555-0125'],
-      createdAt: '2024-01-05',
-      costPerMessage: '$0.0095'
-    },
-    {
-      id: 2,
-      name: 'Transmit Broadcasting',
-      accountId: 'TR_045',
-      apiSecret: 'ts_secret_••••••••••••••••••••••••••••••••',
-      region: 'US',
-      status: 'connected',
-      lastSync: '30 minutes ago',
-      messageCount: 892,
-      leasedNumbers: ['+1-555-0200', '+1-555-0201'],
-      createdAt: '2024-01-08',
-      costPerMessage: '$0.0095'
-    },
-    {
-      id: 3,
-      name: 'Transmit Enterprise',
-      accountId: 'TR_067',
-      apiSecret: 'ts_secret_••••••••••••••••••••••••••••••••',
-      region: 'US',
-      status: 'connected',
-      lastSync: '10 minutes ago',
-      messageCount: 2156,
-      leasedNumbers: ['+1-555-0301', '+1-555-0302', '+1-555-0303', '+1-555-0304'],
-      createdAt: '2024-01-05',
-      costPerMessage: '$0.0095'
-    },
-    {
-      id: 4,
-      name: 'Transmit Test Account',
-      accountId: 'TR_023',
-      apiSecret: 'ts_secret_••••••••••••••••••••••••••••••••',
-      region: 'US',
-      status: 'error',
-      lastSync: '2 days ago',
-      messageCount: 0,
-      leasedNumbers: [],
-      createdAt: '2024-01-12',
-      costPerMessage: '$0.0095'
-    }
-  ]);
+
   const [newAccount, setNewAccount] = useState({
     name: '',
     accountId: '',
+    apiKey: '',
     apiSecret: '',
     region: 'US',
     status: 'active',
-    leasedNumbers: ''
+    leasedNumbers: '',
+    notes: ''
   });
 
-  const handleDeleteAccount = (id) => {
-    if (window.confirm('Are you sure you want to delete this Transmit SMS account?')) {
-      setAccounts(accounts.filter(account => account.id !== id));
-    }
-  };
-
-  const handleEditAccount = (account) => {
-    setEditingAccount(account);
-    setNewAccount({
-      name: account.name,
-      apiKey: account.apiKey,
-      region: account.region,
-      leasedNumbers: account.leasedNumbers.join(', '),
-      notes: account.notes
-    });
-    setShowEditModal(true);
-  };
-
-  const handleUpdateAccount = () => {
-    if (newAccount.name && newAccount.apiKey && newAccount.region) {
-      setAccounts(accounts.map(account => 
-        account.id === editingAccount.id 
-          ? {
-              ...account,
-              name: newAccount.name,
-              apiKey: newAccount.apiKey,
-              region: newAccount.region,
-              leasedNumbers: newAccount.leasedNumbers.split(',').map(num => num.trim()).filter(num => num),
-              notes: newAccount.notes,
-              lastSync: new Date().toLocaleString()
-            }
-          : account
-      ));
-      
-      setNewAccount({ name: '', apiKey: '', region: '', leasedNumbers: '', notes: '' });
-      setShowEditModal(false);
-      setEditingAccount(null);
-    }
-  };
-
+  
+  
   const filteredAccounts = accounts.filter(account =>
-    account.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    account.accountId.toLowerCase().includes(searchTerm.toLowerCase())
+    account?.account_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    account?.account_id?.toLowerCase().includes(searchTerm.toLowerCase())
   );
-
-  const handleAddAccount = (e) => {
-    e.preventDefault();
-    // Here you would typically make an API call to add the account
-    console.log('Adding Transmit SMS account:', newAccount);
-    setShowAddAccount(false);
-    setNewAccount({
-      name: '',
-      accountId: '',
-      apiSecret: '',
-      region: 'US',
-      status: 'active',
-      leasedNumbers: ''
-    });
-  };
+  
+  console.log(accounts, isLoading, filteredAccounts, 'accounts');
 
   const handleInputChange = (e) => {
     setNewAccount({
@@ -150,6 +54,79 @@ const TransmitAccounts = () => {
     });
   };
 
+  const handleAddAccount = async (e) => {
+    e.preventDefault();
+    try {
+      await createAccount({
+        account_name: newAccount.name,
+        api_key: newAccount.apiKey,
+        api_secret: newAccount.apiSecret,
+        account_id: newAccount.accountId
+      }).unwrap();
+      setShowAddAccount(false);
+      setNewAccount({
+        name: '',
+        accountId: '',
+        apiKey: '',
+        apiSecret: '',
+        region: 'US',
+        status: 'active',
+        leasedNumbers: '',
+        notes: ''
+      });
+      refetch();
+    } catch (err) {
+      console.error('Error adding account:', err);
+    }
+  };
+
+  const handleDeleteAccount = async (id) => {
+    if (window.confirm('Are you sure you want to delete this Transmit SMS account?')) {
+      try {
+        await deleteAccount(id).unwrap();
+        refetch();
+      } catch (err) {
+        console.error('Error deleting account:', err);
+      }
+    }
+  };
+
+  const handleEditAccount = (account) => {
+    setEditingAccount(account);
+    setNewAccount({
+      name: account.account_name || '',
+      apiKey: account.api_key || '',
+      apiSecret: account.api_secret || '',
+      accountId: account.account_id || '',
+      region: account.region || 'US',
+      leasedNumbers: account.leasedNumbers?.join(', ') || '',
+      notes: account.notes || ''
+    });
+    setShowEditModal(true);
+  };
+
+  const handleUpdateAccount = async (e) => {
+    e.preventDefault()
+    if (editingAccount?.id && newAccount.name && newAccount.apiKey) {
+      try {
+        await updateAccount({
+          id: editingAccount.id,
+          account_name: newAccount.name,
+          api_key: newAccount.apiKey,
+          api_secret: newAccount.apiSecret,
+          account_id: newAccount.accountId
+        }).unwrap();
+        setShowEditModal(false);
+        setEditingAccount(null);
+        refetch();
+      } catch (err) {
+        console.error('Error updating account:', err);
+      }
+    }
+  };
+
+  if (isLoading) return <div className="text-center py-10">Loading Transmit SMS Accounts...</div>;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -157,8 +134,16 @@ const TransmitAccounts = () => {
           <h1 className="text-3xl font-bold text-gray-900">Transmit SMS Accounts</h1>
           <p className="text-gray-600 mt-2">Manage Transmit SMS account connections and configurations</p>
         </div>
-        <button 
-          onClick={() => setShowAddAccount(true)}
+        <button
+          onClick={() => {
+            setNewAccount({
+              name: '',
+              accountId: '',
+              apiKey: '',
+              apiSecret: '',
+            });
+            setShowAddAccount(true);
+          }}
           className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
         >
           <Plus className="w-4 h-4" />
@@ -167,48 +152,10 @@ const TransmitAccounts = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Total Accounts</p>
-              <p className="text-2xl font-bold text-gray-900">{accounts.length}</p>
-            </div>
-            <Radio className="w-8 h-8 text-indigo-500" />
-          </div>
-        </div>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Connected</p>
-              <p className="text-2xl font-bold text-green-600">
-                {accounts.filter(a => a.status === 'connected').length}
-              </p>
-            </div>
-            <CheckCircle className="w-8 h-8 text-green-500" />
-          </div>
-        </div>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Leased Numbers</p>
-              <p className="text-2xl font-bold text-blue-600">
-                {accounts.reduce((sum, acc) => sum + acc.leasedNumbers.length, 0)}
-              </p>
-            </div>
-            <Phone className="w-8 h-8 text-blue-500" />
-          </div>
-        </div>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Total Messages</p>
-              <p className="text-2xl font-bold text-indigo-600">
-                {accounts.reduce((sum, acc) => sum + acc.messageCount, 0).toLocaleString()}
-              </p>
-            </div>
-            <Globe className="w-8 h-8 text-indigo-500" />
-          </div>
-        </div>
+        <StatCard label="Total Accounts" value={accounts.length} icon={<Radio className="w-8 h-8 text-indigo-500" />} />
+        <StatCard label="Connected" value={accounts.filter(a => a.status === 'connected').length} icon={<CheckCircle className="w-8 h-8 text-green-500" />} />
+        <StatCard label="Leased Numbers" value={accounts.reduce((sum, acc) => sum + (acc.leasedNumbers?.length || 0), 0)} icon={<Phone className="w-8 h-8 text-blue-500" />} />
+        <StatCard label="Total Messages" value={accounts.reduce((sum, acc) => sum + (acc.messageCount || 0), 0).toLocaleString()} icon={<Globe className="w-8 h-8 text-indigo-500" />} />
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200">
@@ -232,120 +179,34 @@ const TransmitAccounts = () => {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full text-sm">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Account Details
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  API Configuration
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Leased Numbers
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Messages
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Cost/Message
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
+                <th className="px-6 py-3 text-left font-medium text-gray-500 uppercase">Account Name</th>
+                <th className="px-6 py-3 text-left font-medium text-gray-500 uppercase">Account ID</th>
+                <th className="px-6 py-3 text-left font-medium text-gray-500 uppercase">Status</th>
+                <th className="px-6 py-3 text-left font-medium text-gray-500 uppercase">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredAccounts.map((account) => (
-                <tr key={account.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
-                        <Radio className="w-5 h-5 text-indigo-600" />
-                      </div>
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">{account.name}</div>
-                        <div className="text-sm text-gray-500">{account.accountId}</div>
-                        <div className="text-xs text-gray-400">{account.region}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="space-y-1">
-                      <div className="flex items-center space-x-2">
-                        <Key className="w-3 h-3 text-gray-400" />
-                        <span className="text-xs text-gray-600 font-mono">{account.apiSecret}</span>
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        Region: {account.region}
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                <tr key={account.id}>
+                  <td className="px-6 py-4">{account.account_name}</td>
+                  <td className="px-6 py-4">{account.account_id}</td>
+                  <td className="px-6 py-4">
                     {account.status === 'connected' ? (
-                      <div className="flex items-center space-x-2">
-                        <CheckCircle className="w-4 h-4 text-green-500" />
-                        <span className="text-sm text-green-600">Connected</span>
-                      </div>
+                      <span className="text-green-600">Connected</span>
                     ) : (
-                      <div className="flex items-center space-x-2">
-                        <AlertCircle className="w-4 h-4 text-red-500" />
-                        <span className="text-sm text-red-600">Error</span>
-                      </div>
+                      <span className="text-red-600">Disconnected</span>
                     )}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="space-y-1">
-                      {account.leasedNumbers.length > 0 ? (
-                        <>
-                          <div className="text-sm font-medium text-gray-900">
-                            {account.leasedNumbers.length} numbers
-                          </div>
-                          <div className="space-y-1">
-                            {account.leasedNumbers.slice(0, 2).map((number) => (
-                              <div key={number} className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded inline-block mr-1">
-                                {number}
-                              </div>
-                            ))}
-                            {account.leasedNumbers.length > 2 && (
-                              <div className="text-xs text-gray-500">
-                                +{account.leasedNumbers.length - 2} more
-                              </div>
-                            )}
-                          </div>
-                        </>
-                      ) : (
-                        <span className="text-sm text-gray-400">No leased numbers</span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {account.messageCount.toLocaleString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {account.costPerMessage}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    <div className="flex items-center space-x-2">
-                      <button 
-                        onClick={() => handleEditAccount(account)}
-                        className="text-blue-600 hover:text-blue-800 transition-colors"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button 
-                        onClick={() => handleDeleteAccount(account.id)}
-                        className="text-red-600 hover:text-red-800 transition-colors"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                      <button className="text-gray-400 hover:text-gray-600 transition-colors">
-                        <MoreHorizontal className="w-4 h-4" />
-                      </button>
-                    </div>
+                  <td className="px-6 py-4 space-x-2">
+                    <button onClick={() => handleEditAccount(account)} className="text-blue-600 hover:text-blue-800">
+                      <Edit className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => handleDeleteAccount(account.id)} className="text-red-600 hover:text-red-800">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -354,221 +215,103 @@ const TransmitAccounts = () => {
         </div>
       </div>
 
+      {/* Add Account Modal */}
       {showAddAccount && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4">
-            <div className="p-6 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900">Add Transmit SMS Account</h3>
-              <p className="text-sm text-gray-600 mt-1">Configure a new Transmit SMS account connection</p>
-            </div>
-            <form onSubmit={handleAddAccount} className="p-6 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Account Name *
-                  </label>
-                  <input
-                    type="text"
-                    name="name"
-                    value={newAccount.name}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="e.g., Transmit US Main"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Account ID *
-                  </label>
-                  <input
-                    type="text"
-                    name="accountId"
-                    value={newAccount.accountId}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="e.g., TR_001"
-                    required
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  API Secret *
-                </label>
-                <input
-                  type="password"
-                  name="apiSecret"
-                  value={newAccount.apiSecret}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="ts_secret_••••••••••••••••••••••••••••••••"
-                  required
-                />
-              </div>
-              {/* <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Region
-                </label>
-                <select
-                  name="region"
-                  value={newAccount.region}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="US">United States</option>
-                  <option value="UK">United Kingdom</option>
-                  <option value="IN">India</option>
-                  <option value="CA">Canada</option>
-                </select>
-              </div> */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Leased Numbers
-                </label>
-                <textarea
-                  name="leasedNumbers"
-                  value={newAccount.leasedNumbers}
-                  onChange={handleInputChange}
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Enter phone numbers separated by commas (e.g., +1-555-0123, +1-555-0124)"
-                />
-                <p className="text-xs text-gray-500 mt-1">Optional: Enter leased phone numbers separated by commas</p>
-              </div>
-              {/* <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Status
-                </label>
-                <select
-                  name="status"
-                  value={newAccount.status}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                </select>
-              </div> */}
-            </form>
-            <div className="p-6 border-t border-gray-200 flex justify-end space-x-3">
-              <button 
-                type="button"
-                onClick={() => setShowAddAccount(false)}
-                className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button 
-                onClick={handleAddAccount}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                Add Account
-              </button>
-            </div>
-          </div>
-        </div>
+        <Modal title="Add Transmit SMS Account" onClose={() => setShowAddAccount(false)} onSubmit={handleAddAccount}>
+          <AccountForm newAccount={newAccount} handleInputChange={handleInputChange} />
+        </Modal>
       )}
 
       {/* Edit Account Modal */}
       {showEditModal && (
-       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-         <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
-           <div className="flex items-center justify-between p-6 border-b border-gray-200">
-             <h3 className="text-lg font-semibold text-gray-900">Edit Transmit SMS Account</h3>
-             <button
-               onClick={() => setShowEditModal(false)}
-               className="text-gray-400 hover:text-gray-600"
-             >
-               <X className="w-5 h-5" />
-             </button>
-           </div>
-           <div className="p-6 space-y-4">
-             <div>
-               <label className="block text-sm font-medium text-gray-700 mb-2">
-                 Account Name
-               </label>
-               <input
-                 type="text"
-                 value={newAccount.name}
-                 onChange={(e) => setNewAccount({...newAccount, name: e.target.value})}
-                 placeholder="Enter account name"
-                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-               />
-             </div>
-             <div>
-               <label className="block text-sm font-medium text-gray-700 mb-2">
-                 API Key
-               </label>
-               <input
-                 type="password"
-                 value={newAccount.apiKey}
-                 onChange={(e) => setNewAccount({...newAccount, apiKey: e.target.value})}
-                 placeholder="Enter API key"
-                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-               />
-             </div>
-             {/* <div>
-               <label className="block text-sm font-medium text-gray-700 mb-2">
-                 Region
-               </label>
-               <select
-                 value={newAccount.region}
-                 onChange={(e) => setNewAccount({...newAccount, region: e.target.value})}
-                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-               >
-                 <option value="">Select Region</option>
-                 <option value="US">United States</option>
-                 <option value="UK">United Kingdom</option>
-                 <option value="Canada">Canada</option>
-                 <option value="India">India</option>
-               </select>
-             </div> */}
-             <div>
-               <label className="block text-sm font-medium text-gray-700 mb-2">
-                 Leased Numbers (comma-separated)
-               </label>
-               <input
-                 type="text"
-                 value={newAccount.leasedNumbers}
-                 onChange={(e) => setNewAccount({...newAccount, leasedNumbers: e.target.value})}
-                 placeholder="+1234567890, +1987654321"
-                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-               />
-             </div>
-             <div>
-               <label className="block text-sm font-medium text-gray-700 mb-2">
-                 Notes (Optional)
-               </label>
-               <textarea
-                 value={newAccount.notes}
-                 onChange={(e) => setNewAccount({...newAccount, notes: e.target.value})}
-                 placeholder="Add any notes about this account..."
-                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                 rows="3"
-               />
-             </div>
-           </div>
-           <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200">
-             <button
-               onClick={() => setShowEditModal(false)}
-               className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-             >
-               Cancel
-             </button>
-             <button
-               onClick={handleUpdateAccount}
-               disabled={!newAccount.name || !newAccount.apiKey || !newAccount.region}
-               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-             >
-               Update Account
-             </button>
-           </div>
-         </div>
-       </div>
+        <Modal title="Edit Transmit SMS Account" onClose={() => setShowEditModal(false)} onSubmit={handleUpdateAccount}>
+          <AccountForm newAccount={newAccount} handleInputChange={handleInputChange} />
+        </Modal>
       )}
     </div>
   );
 };
 
 export default TransmitAccounts;
+
+// Helper components
+const StatCard = ({ label, value, icon }) => (
+  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-sm text-gray-600">{label}</p>
+        <p className="text-2xl font-bold text-gray-900">{value}</p>
+      </div>
+      {icon}
+    </div>
+  </div>
+);
+
+const Modal = ({ title, children, onClose, onSubmit }) => (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4">
+      <div className="flex items-center justify-between p-6 border-b border-gray-200">
+        <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+        <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+          <X className="w-5 h-5" />
+        </button>
+      </div>
+      <form onSubmit={(e) => onSubmit(e)} className="p-6 space-y-4">
+        {children}
+        <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+          <button type="button" onClick={onClose} className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50">Cancel</button>
+          <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+);
+
+const AccountForm = ({ newAccount, handleInputChange }) => (
+  <>
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-2">Account Name</label>
+      <input
+        type="text"
+        name="name"
+        value={newAccount.name}
+        onChange={handleInputChange}
+        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+        required
+      />
+    </div>
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-2">Account ID</label>
+      <input
+        type="text"
+        name="accountId"
+        value={newAccount.accountId}
+        onChange={handleInputChange}
+        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+        required
+      />
+    </div>
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-2">API Key</label>
+      <input
+        type="text"
+        name="apiKey"
+        value={newAccount.apiKey}
+        onChange={handleInputChange}
+        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+        required
+      />
+    </div>
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-2">API Secret</label>
+      <input
+        type="text"
+        name="apiSecret"
+        value={newAccount.apiSecret}
+        onChange={handleInputChange}
+        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+        required
+      />
+    </div>
+  </>
+);

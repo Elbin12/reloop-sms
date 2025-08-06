@@ -18,6 +18,8 @@ export const axiosBaseQuery =
         data,
         params,
       });
+      console.log(result.data, 'dd');
+      
       return { data: result.data };
     } catch (axiosError) {
       return {
