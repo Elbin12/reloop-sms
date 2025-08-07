@@ -7,7 +7,7 @@ export const transmitsmsAccountApi = createApi({
   tagTypes: ['Account'],
   endpoints: (builder) => ({
     getTransmitsmsAccounts: builder.query({
-      query: () => '',
+      query: ({ page = 1 }) => `?page=${page}`,
       providesTags: ['Account'],
     }),
     createTransmitsmsAccount: builder.mutation({

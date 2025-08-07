@@ -3,21 +3,25 @@ import {
   Plus,
   Search,
   Filter,
-  MoreHorizontal,
-  Radio,
-  CheckCircle,
-  AlertCircle,
   Edit,
   Trash2,
-  Key,
-  Globe,
+  Radio,
+  CheckCircle,
   Phone,
-  X
+  Globe,
+  X,
 } from 'lucide-react';
-import { useCreateTransmitsmsAccountMutation, useDeleteTransmitsmsAccountMutation, useGetTransmitsmsAccountsQuery, useUpdateTransmitsmsAccountMutation } from '../store/api/transmitsmsaccountApi';
+import {
+  useCreateTransmitsmsAccountMutation,
+  useDeleteTransmitsmsAccountMutation,
+  useGetTransmitsmsAccountsQuery,
+  useUpdateTransmitsmsAccountMutation,
+} from '../store/api/transmitsmsaccountApi';
 
 const TransmitAccounts = () => {
-  const { data: accounts = [], isLoading, refetch } = useGetTransmitsmsAccountsQuery();
+  const [page, setPage] = useState(1);
+  const { data: accountsData = {}, isLoading, refetch } = useGetTransmitsmsAccountsQuery({ page });
+
   const [createAccount] = useCreateTransmitsmsAccountMutation();
   const [updateAccount] = useUpdateTransmitsmsAccountMutation();
   const [deleteAccount] = useDeleteTransmitsmsAccountMutation();
@@ -38,14 +42,15 @@ const TransmitAccounts = () => {
     notes: ''
   });
 
-  
-  
+  const accounts = accountsData?.results || [];
+  const totalCount = accountsData?.count || 0;
+  const nextPageAvailable = !!accountsData?.next;
+  const prevPageAvailable = !!accountsData?.previous;
+
   const filteredAccounts = accounts.filter(account =>
     account?.account_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     account?.account_id?.toLowerCase().includes(searchTerm.toLowerCase())
   );
-  
-  console.log(accounts, isLoading, filteredAccounts, 'accounts');
 
   const handleInputChange = (e) => {
     setNewAccount({
@@ -74,6 +79,7 @@ const TransmitAccounts = () => {
         leasedNumbers: '',
         notes: ''
       });
+      setPage(1);
       refetch();
     } catch (err) {
       console.error('Error adding account:', err);
@@ -84,6 +90,7 @@ const TransmitAccounts = () => {
     if (window.confirm('Are you sure you want to delete this Transmit SMS account?')) {
       try {
         await deleteAccount(id).unwrap();
+        setPage(1);
         refetch();
       } catch (err) {
         console.error('Error deleting account:', err);
@@ -106,7 +113,7 @@ const TransmitAccounts = () => {
   };
 
   const handleUpdateAccount = async (e) => {
-    e.preventDefault()
+    e.preventDefault();
     if (editingAccount?.id && newAccount.name && newAccount.apiKey) {
       try {
         await updateAccount({
@@ -152,7 +159,7 @@ const TransmitAccounts = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <StatCard label="Total Accounts" value={accounts.length} icon={<Radio className="w-8 h-8 text-indigo-500" />} />
+        <StatCard label="Total Accounts" value={totalCount} icon={<Radio className="w-8 h-8 text-indigo-500" />} />
         <StatCard label="Connected" value={accounts.filter(a => a.status === 'connected').length} icon={<CheckCircle className="w-8 h-8 text-green-500" />} />
         <StatCard label="Leased Numbers" value={accounts.reduce((sum, acc) => sum + (acc.leasedNumbers?.length || 0), 0)} icon={<Phone className="w-8 h-8 text-blue-500" />} />
         <StatCard label="Total Messages" value={accounts.reduce((sum, acc) => sum + (acc.messageCount || 0), 0).toLocaleString()} icon={<Globe className="w-8 h-8 text-indigo-500" />} />
@@ -213,16 +220,37 @@ const TransmitAccounts = () => {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination */}
+        <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200 bg-white">
+          <p className="text-sm text-gray-600">
+            Page {page} — Showing {accounts.length} of {totalCount} accounts
+          </p>
+          <div className="flex space-x-2">
+            <button
+              onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
+              disabled={!prevPageAvailable}
+              className={`px-3 py-1 rounded-md border ${prevPageAvailable ? 'bg-white text-gray-700 hover:bg-gray-50' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
+            >
+              Previous
+            </button>
+            <button
+              onClick={() => setPage((prev) => prev + 1)}
+              disabled={!nextPageAvailable}
+              className={`px-3 py-1 rounded-md border ${nextPageAvailable ? 'bg-white text-gray-700 hover:bg-gray-50' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
+            >
+              Next
+            </button>
+          </div>
+        </div>
       </div>
 
-      {/* Add Account Modal */}
       {showAddAccount && (
         <Modal title="Add Transmit SMS Account" onClose={() => setShowAddAccount(false)} onSubmit={handleAddAccount}>
           <AccountForm newAccount={newAccount} handleInputChange={handleInputChange} />
         </Modal>
       )}
 
-      {/* Edit Account Modal */}
       {showEditModal && (
         <Modal title="Edit Transmit SMS Account" onClose={() => setShowEditModal(false)} onSubmit={handleUpdateAccount}>
           <AccountForm newAccount={newAccount} handleInputChange={handleInputChange} />
@@ -256,7 +284,7 @@ const Modal = ({ title, children, onClose, onSubmit }) => (
           <X className="w-5 h-5" />
         </button>
       </div>
-      <form onSubmit={(e) => onSubmit(e)} className="p-6 space-y-4">
+      <form onSubmit={onSubmit} className="p-6 space-y-4">
         {children}
         <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
           <button type="button" onClick={onClose} className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50">Cancel</button>

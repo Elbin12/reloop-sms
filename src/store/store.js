@@ -1,13 +1,15 @@
 import { configureStore } from '@reduxjs/toolkit';
-import { servicesApi } from './api/servicesApi';
 import authSlice from './slices/authSlice';
 import { transmitsmsAccountApi } from './api/transmitsmsaccountApi';
+import { highlevelAccountApi } from './api/highlevelAccountApi';
+import { accountMappingApi } from './api/accountMappingApi';
 
 export const store = configureStore({
   reducer: {
     auth: authSlice,
     [transmitsmsAccountApi.reducerPath]: transmitsmsAccountApi.reducer,
-    [servicesApi.reducerPath]: servicesApi.reducer,
+    [highlevelAccountApi.reducerPath]: highlevelAccountApi.reducer,
+    [accountMappingApi.reducerPath]: accountMappingApi.reducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
@@ -19,7 +21,8 @@ export const store = configureStore({
       },
     })
     .concat(transmitsmsAccountApi.middleware)
-    .concat(servicesApi.middleware)
+    .concat(highlevelAccountApi.middleware)
+    .concat(accountMappingApi.middleware)
 });
 
 export default store;
