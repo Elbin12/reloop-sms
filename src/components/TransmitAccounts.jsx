@@ -192,7 +192,7 @@ const TransmitAccounts = () => {
                 <th className="px-6 py-3 text-left font-medium text-gray-500 uppercase">Account Name</th>
                 <th className="px-6 py-3 text-left font-medium text-gray-500 uppercase">Account ID</th>
                 <th className="px-6 py-3 text-left font-medium text-gray-500 uppercase">Status</th>
-                <th className="px-6 py-3 text-left font-medium text-gray-500 uppercase">Actions</th>
+                {/* <th className="px-6 py-3 text-left font-medium text-gray-500 uppercase">Actions</th> */}
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -207,14 +207,14 @@ const TransmitAccounts = () => {
                       <span className="text-red-600">Disconnected</span>
                     )}
                   </td>
-                  <td className="px-6 py-4 space-x-2">
+                  {/* <td className="px-6 py-4 space-x-2">
                     <button onClick={() => handleEditAccount(account)} className="text-blue-600 hover:text-blue-800">
                       <Edit className="w-4 h-4" />
                     </button>
                     <button onClick={() => handleDeleteAccount(account.id)} className="text-red-600 hover:text-red-800">
                       <Trash2 className="w-4 h-4" />
                     </button>
-                  </td>
+                  </td> */}
                 </tr>
               ))}
             </tbody>

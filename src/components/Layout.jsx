@@ -4,11 +4,13 @@ import { useState } from "react"
 import Sidebar from "./Sidebar"
 import { useDispatch } from "react-redux"
 import { logoutUser } from "../store/slices/authSlice"
+import { useNavigate } from "react-router-dom"
 
 const Layout = ({ children }) => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
 
   const dispatch = useDispatch();
+  const navigate = useNavigate();
 
   const toggleSidebar = () => {
     setIsSidebarCollapsed(!isSidebarCollapsed)
@@ -16,6 +18,7 @@ const Layout = ({ children }) => {
 
   const logout = ()=>{
     dispatch(logoutUser());
+    navigate('/login')
   }
 
   return (

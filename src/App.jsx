@@ -24,16 +24,16 @@ import { Provider, useSelector } from "react-redux"
 
 function RequireAuth({ children }) {
   const location = useLocation()
-  const access = useSelector(state => state.auth.access);
+  const access = localStorage.getItem('access')
 
   if (!access) {
-    // return <Navigate to="/login" replace state={{ from: location }} />
+    return <Navigate to="/login" replace state={{ from: location }} />  
   }
   return children
 }
 
 function RedirectIfAuth({ children }) {
-  const access = useSelector(state => state.auth.access);
+  const access = localStorage.getItem('access')
   const location = useLocation();
 
   if (access) {

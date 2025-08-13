@@ -64,7 +64,7 @@ axiosInstance.interceptors.response.use(
           throw new Error('No refresh token available');
         }
 
-        const response = await axios.post(`${BASE_URL}/service/auth/refresh/`, {
+        const response = await axios.post(`${BASE_URL}/core/token/refresh/`, {
           refresh: refreshToken,
         });
 
@@ -77,6 +77,7 @@ axiosInstance.interceptors.response.use(
       } catch (refreshError) {
         console.error('Refresh token failed:', refreshError);
         localStorage.removeItem('access');
+        localStorage.removeItem('refresh');
         return Promise.reject(refreshError);
       }
     }
