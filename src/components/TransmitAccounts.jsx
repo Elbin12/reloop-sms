@@ -204,7 +204,7 @@ const TransmitAccounts = () => {
                     {account.status === 'connected' ? (
                       <span className="text-green-600">Connected</span>
                     ) : (
-                      <span className="text-red-600">Disconnected</span>
+                      <span className="text-red-600">Connected</span>
                     )}
                   </td>
                   {/* <td className="px-6 py-4 space-x-2">
