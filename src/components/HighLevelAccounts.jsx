@@ -141,7 +141,10 @@ const HighLevelAccounts = () => {
                 <tr>
                   <TableHeadCell>Account Details</TableHeadCell>
                   <TableHeadCell>User Type</TableHeadCell>
+                  <TableHeadCell>Business Email</TableHeadCell>
+                  <TableHeadCell>Business Phone</TableHeadCell>
                   <TableHeadCell>Time Zone</TableHeadCell>
+                  <TableHeadCell>Created At</TableHeadCell>
                   <TableHeadCell>Actions</TableHeadCell>
                 </tr>
               </thead>
@@ -155,7 +158,10 @@ const HighLevelAccounts = () => {
                         <div className="text-sm text-gray-500">ID: {account.location_id}</div>
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-900">{account.user_type}</td>
+                      <td className="px-6 py-4 text-sm text-gray-500">{account.business_email}</td>
+                      <td className="px-6 py-4 text-sm text-gray-500">{account.business_phone}</td>
                       <td className="px-6 py-4 text-sm text-gray-500">{account.timezone}</td>
+                      <td className="px-6 py-4 text-sm text-gray-500">{account.created_at}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         <div className="flex items-center space-x-2">
                           <button

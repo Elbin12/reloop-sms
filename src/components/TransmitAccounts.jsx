@@ -192,6 +192,11 @@ const TransmitAccounts = () => {
                 <th className="px-6 py-3 text-left font-medium text-gray-500 uppercase">Account Name</th>
                 <th className="px-6 py-3 text-left font-medium text-gray-500 uppercase">Account ID</th>
                 <th className="px-6 py-3 text-left font-medium text-gray-500 uppercase">Status</th>
+                <th className="px-6 py-3 text-left font-medium text-gray-500 uppercase">PHONE NO</th>
+                <th className="px-6 py-3 text-left font-medium text-gray-500 uppercase">EMAIL</th>
+                <th className="px-6 py-3 text-left font-medium text-gray-500 uppercase">BALANCE</th>
+                <th className="px-6 py-3 text-left font-medium text-gray-500 uppercase">TIMEZONE</th>
+                <th className="px-6 py-3 text-left font-medium text-gray-500 uppercase">CREATED AT</th>
                 {/* <th className="px-6 py-3 text-left font-medium text-gray-500 uppercase">Actions</th> */}
               </tr>
             </thead>
@@ -201,12 +206,17 @@ const TransmitAccounts = () => {
                   <td className="px-6 py-4">{account.account_name}</td>
                   <td className="px-6 py-4">{account.account_id}</td>
                   <td className="px-6 py-4">
-                    {account.status === 'connected' ? (
+                    {account.is_active ? (
                       <span className="text-green-600">Connected</span>
                     ) : (
                       <span className="text-red-600">Connected</span>
                     )}
                   </td>
+                  <td className="px-6 py-4">{account.phone_number}</td>
+                  <td className="px-6 py-4">{account.email}</td>
+                  <td className="px-6 py-4">{account.balance}</td>
+                  <td className="px-6 py-4">{account.timezone}</td>
+                  <td className="px-6 py-4">{account.created_at}</td>
                   {/* <td className="px-6 py-4 space-x-2">
                     <button onClick={() => handleEditAccount(account)} className="text-blue-600 hover:text-blue-800">
                       <Edit className="w-4 h-4" />
