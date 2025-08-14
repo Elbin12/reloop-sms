@@ -61,7 +61,7 @@ const SMSMonitoring = () => {
         message.from_number?.includes(searchTerm) ||
         message.to_number?.includes(searchTerm) ||
         message.message_content?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        message.ghl_account?.toLowerCase().includes(searchTerm.toLowerCase());
+        message.ghl_account?.location_name?.toLowerCase().includes(searchTerm.toLowerCase());
 
       const matchesStatus = statusFilter === 'all' || message.status === statusFilter;
       return matchesSearch && matchesStatus;
