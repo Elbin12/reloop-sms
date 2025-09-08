@@ -16,6 +16,8 @@ import {
   ChevronDown,
   Menu,
   X,
+  Wallet2Icon,
+  Wallet,
 } from "lucide-react"
 
 const menuItems = [
@@ -50,11 +52,11 @@ const menuItems = [
     label: "SMS Monitoring",
     path: "/sms-monitoring",
   },
-  // {
-  //   icon: Settings,
-  //   label: "Configuration",
-  //   path: "/configuration",
-  // },
+  {
+    icon: Wallet,
+    label: "Wallet Transactions",
+    path: "/wallets",
+  },
   // {
   //   icon: BarChart3,
   //   label: "Analytics",

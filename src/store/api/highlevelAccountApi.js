@@ -8,7 +8,13 @@ export const highlevelAccountApi = createApi({
   endpoints: (builder) => ({
     getHighlevelAccounts: builder.query({
       query: ({ page }) => `?page=${page}`,
-      providesTags: ['HighLevelAccount'],
+      providesTags: (result) =>
+        result
+          ? [
+              ...result.results.map(({ id }) => ({ type: 'HighLevelAccount', id })),
+              { type: 'HighLevelAccount', id: 'LIST' },
+            ]
+          : [{ type: 'HighLevelAccount', id: 'LIST' }],
     }),
     createHighlevelAccount: builder.mutation({
       query: (data) => ({
@@ -24,7 +30,10 @@ export const highlevelAccountApi = createApi({
         method: 'PATCH',
         data: data,
       }),
-      invalidatesTags: (result, error, { id }) => [{ type: 'HighLevelAccount', id }],
+      invalidatesTags: (result, error, { id }) => [
+        { type: 'HighLevelAccount', id },
+        { type: 'HighLevelAccount', id: 'LIST' },
+      ],
     }),
     deleteHighlevelAccount: builder.mutation({
       query: (id) => ({

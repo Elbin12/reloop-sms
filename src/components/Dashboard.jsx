@@ -48,6 +48,11 @@ const Dashboard = () => {
     }
   ];
 
+  // const [pagination, setPagination] = useState({ page: 1, page_size: 10 });
+  // const { data, isLoading, isFetching, refetch } = useGetMessagesApiQuery(pagination);
+
+  // const messages = data?.results || [];
+
   const recentActivity = [
     { id: 1, type: 'success', message: 'SMS sent successfully to +1234567890', time: '2 minutes ago' },
     { id: 2, type: 'warning', message: 'Rate limit approaching for account ACC_001', time: '5 minutes ago' },

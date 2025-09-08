@@ -15,12 +15,12 @@ import HighLevelAccounts from "./components/HighLevelAccounts"
 import TransmitAccounts from "./components/TransmitAccounts"
 import AccountManagement from "./components/AccountManagement"
 import SMSMonitoring from "./components/SMSMonitoring"
-import Configuration from "./components/Configuration"
 import Analytics from "./components/Analytics"
 import Logs from "./components/Logs"
 import Layout from "./components/Layout"
 import store from "./store/store"
 import { Provider, useSelector } from "react-redux"
+import WalletTransactions from "./components/WalletTransactions"
 
 function RequireAuth({ children }) {
   const location = useLocation()
@@ -67,9 +67,9 @@ function App() {
             <Route path="transmit-accounts" element={<TransmitAccounts />} />
             <Route path="account-mapping" element={<AccountManagement />} />
             <Route path="sms-monitoring" element={<SMSMonitoring />} />
-            {/* <Route path="configuration" element={<Configuration />} />
+            <Route path="wallets" element={<WalletTransactions />} />
             <Route path="analytics" element={<Analytics />} />
-            <Route path="logs" element={<Logs />} /> */}
+            <Route path="logs" element={<Logs />} />
             {/* fallback */}
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Route>

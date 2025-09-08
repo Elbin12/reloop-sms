@@ -29,6 +29,8 @@ const HighLevelAccounts = () => {
   const [editingAccount, setEditingAccount] = useState(null);
   const [newAccount, setNewAccount] = useState({
     location_name: '',
+    inbound_segment_charge:'',
+    outbound_segment_charge: ''
   });
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -66,6 +68,8 @@ const HighLevelAccounts = () => {
     setEditingAccount(account);
     setNewAccount({
       location_name: account.location_name,
+      inbound_segment_charge: account?.wallet?.inbound_segment_charge,
+      outbound_segment_charge: account?.wallet?.outbound_segment_charge
     });
     setShowEditModal(true);
   };
@@ -73,7 +77,9 @@ const HighLevelAccounts = () => {
   const handleUpdateAccount = async () => {
     if (!editingAccount) return;
     try {
-      await updateAccount({ id: editingAccount.id, location_name: newAccount.location_name });
+      await updateAccount({ id: editingAccount.id, location_name: newAccount.location_name,
+        wallet:{inbound_segment_charge: newAccount?.inbound_segment_charge, outbound_segment_charge: newAccount?.outbound_segment_charge}
+       });
       setShowEditModal(false);
       setEditingAccount(null);
     } catch (err) {
@@ -140,9 +146,12 @@ const HighLevelAccounts = () => {
               <thead className="bg-gray-50">
                 <tr>
                   <TableHeadCell>Account Details</TableHeadCell>
-                  <TableHeadCell>User Type</TableHeadCell>
+                  {/* <TableHeadCell>User Type</TableHeadCell> */}
                   <TableHeadCell>Business Email</TableHeadCell>
                   <TableHeadCell>Business Phone</TableHeadCell>
+                  <TableHeadCell>Balance</TableHeadCell>
+                  <TableHeadCell>Inbound Charge</TableHeadCell>
+                  <TableHeadCell>Outbound Charge</TableHeadCell>
                   <TableHeadCell>Time Zone</TableHeadCell>
                   <TableHeadCell>Created At</TableHeadCell>
                   <TableHeadCell>Actions</TableHeadCell>
@@ -157,11 +166,14 @@ const HighLevelAccounts = () => {
                         <div className="text-sm font-medium text-gray-900">{account.location_name}</div>
                         <div className="text-sm text-gray-500">ID: {account.location_id}</div>
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-900">{account.user_type}</td>
+                      {/* <td className="px-6 py-4 text-sm text-gray-900">{account.user_type}</td>   */}
                       <td className="px-6 py-4 text-sm text-gray-500">{account.business_email}</td>
                       <td className="px-6 py-4 text-sm text-gray-500">{account.business_phone}</td>
+                      <td className="px-6 py-4 text-sm text-gray-500">{account.wallet? account.wallet?.balance: 0}</td>
+                      <td className="px-6 py-4 text-sm text-gray-500">{account.wallet? account.wallet?.inbound_segment_charge: 'Nil'}</td>
+                      <td className="px-6 py-4 text-sm text-gray-500">{account.wallet? account.wallet?.outbound_segment_charge: 'Nil'}</td>
                       <td className="px-6 py-4 text-sm text-gray-500">{account.timezone}</td>
-                      <td className="px-6 py-4 text-sm text-gray-500">{account.created_at}</td>
+                      <td className="px-6 py-4 text-sm text-gray-500">{new Date(account?.created_at).toLocaleDateString()}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         <div className="flex items-center space-x-2">
                           <button
@@ -176,9 +188,9 @@ const HighLevelAccounts = () => {
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
-                          <button className="text-gray-400 hover:text-gray-600">
+                          {/* <button className="text-gray-400 hover:text-gray-600">
                             <MoreHorizontal className="w-4 h-4" />
-                          </button>
+                          </button> */}
                         </div>
                       </td>
                     </tr>
@@ -227,6 +239,16 @@ const HighLevelAccounts = () => {
                 label="Location Name"
                 value={newAccount.location_name}
                 onChange={(e) => setNewAccount({ ...newAccount, location_name: e.target.value })}
+              />
+              <InputField
+                label="Inbound Charge"
+                value={newAccount.inbound_segment_charge}
+                onChange={(e) => setNewAccount({ ...newAccount, inbound_segment_charge: e.target.value })}
+              />
+              <InputField
+                label="Outbound Charge"
+                value={newAccount.outbound_segment_charge}
+                onChange={(e) => setNewAccount({ ...newAccount, outbound_segment_charge: e.target.value })}
               />
             </div>
             <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200">
