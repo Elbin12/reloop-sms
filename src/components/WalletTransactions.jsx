@@ -152,13 +152,13 @@ const WalletTransactions = () => {
   const [balanceFilter, setBalanceFilter] = useState("all")
   const [sortBy, setSortBy] = useState("updated_at")
   const [sortOrder, setSortOrder] = useState("desc")
-  const [viewMode, setViewMode] = useState("grid") // grid or list
+  const [viewMode, setViewMode] = useState("list") // grid or list
 
   // Pagination states
   const [accountsPage, setAccountsPage] = useState(1)
   const [transactionsPage, setTransactionsPage] = useState(1)
   const [accountsPerPage, setAccountsPerPage] = useState(12)
-  const [transactionsPerPage, setTransactionsPerPage] = useState(25)
+  const [transactionsPerPage, setTransactionsPerPage] = useState(10)
 
   // Loading states
   const [walletsLoadingState, setWalletsLoadingState] = useState(false)
@@ -508,7 +508,7 @@ const WalletTransactions = () => {
                 <Search className="w-5 h-5 absolute left-3 top-3 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Search by location name, user ID, email, or description..."
+                  placeholder="Search by location name or email..."
                   value={searchTerm}
                   onChange={(e) => handleSearchChange(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
