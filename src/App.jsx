@@ -21,6 +21,7 @@ import Layout from "./components/Layout"
 import store from "./store/store"
 import { Provider, useSelector } from "react-redux"
 import WalletTransactions from "./components/WalletTransactions"
+import UserDashboard from "./components/user/userDashboard"
 
 function RequireAuth({ children }) {
   const location = useLocation()
@@ -50,6 +51,7 @@ function App() {
         <Routes>
           {/* Public login page */}
           <Route path="/login" element={<RedirectIfAuth><Login /></RedirectIfAuth>} />
+          <Route path="/user/dashboard" element={<UserDashboard />} />
 
           {/* Protected routes wrapped in Layout */}
           <Route

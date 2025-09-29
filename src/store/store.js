@@ -6,6 +6,7 @@ import { accountMappingApi } from './api/accountMappingApi';
 import { messagesApi } from './api/messagesApi';
 import { walletsApi } from './api/walletApi';
 import { dashboardApi } from './api/dashboardApi';
+import { dashboardAPi } from './api/userDashboardApi';
 
 export const store = configureStore({
   reducer: {
@@ -16,6 +17,7 @@ export const store = configureStore({
     [messagesApi.reducerPath]: messagesApi.reducer,
     [walletsApi.reducerPath]: walletsApi.reducer,
     [dashboardApi.reducerPath]: dashboardApi.reducer,
+    [dashboardAPi.reducerPath]: dashboardAPi.reducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
@@ -32,6 +34,7 @@ export const store = configureStore({
     .concat(messagesApi.middleware)
     .concat(walletsApi.middleware)
     .concat(dashboardApi.middleware)
+    .concat(dashboardAPi.middleware),
 });
 
 export default store;
