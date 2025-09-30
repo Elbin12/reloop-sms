@@ -217,165 +217,188 @@ export default function UserDashboard() {
   return (
     <>
       {/* Header */}
-      <div className="sticky w-full top-0 bg-green-50 px-4 md:px-24 py-2 md:py-5 z-10 shadow-md ">
-        <h1 className="text-xl md:text-3xl font-bold mb-2">Dashboard</h1>
-        <div className="flex flex-wrap gap-4 ">
-          <span className="sm:text-xs md:text-base">
-            📍 {dashboard?.account.location_name}
-          </span>
-          <span>✉️ {dashboard?.account.business_email}</span>
-          <span>📞 {dashboard?.account.business_phone}</span>
+      <div className="sticky w-full top-0 bg-white border-b border-gray-200 z-10 shadow-sm">
+        {/* Main Navbar */}
+        <div className="px-4 md:px-8 lg:px-20 py-3 md:py-4">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            {/* Left Section - Company Name & Dashboard */}
+            <div className="flex items-center gap-3">
+              <h1 className="text-xl md:text-2xl font-bold text-gray-900">
+                Reloop <span className="text-green-600">SMS</span>
+              </h1>
+              <span className="hidden md:inline-block w-px h-6 bg-gray-300"></span>
+              <span className="text-sm md:text-base text-gray-600 font-medium">Dashboard</span>
+            </div>
+
+            {/* Right Section - Location & Email */}
+            <div className="flex flex-wrap items-center gap-3 md:gap-4 text-xs md:text-sm text-gray-600">
+              <div className="flex items-center gap-1.5">
+                <span className="text-gray-400">📍</span>
+                <span>{dashboard?.account.location_name}</span>
+              </div>
+              <span className="hidden sm:inline-block w-px h-4 bg-gray-300"></span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-gray-400">✉️</span>
+                <span>{dashboard?.account.business_email}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Account & Integration Info Bar */}
+        <div className="bg-gray-50 border-t border-gray-200 px-4 md:px-8 lg:px-20 py-2">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2 text-xs">
+            {/* Account Info */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 text-gray-600">
+              <div className="flex items-center gap-1.5">
+                <span className="font-medium text-gray-500 whitespace-nowrap">Account ID:</span>
+                <span className="font-mono text-gray-700 break-all">{dashboard?.account.id}</span>
+              </div>
+              <span className="hidden sm:inline-block w-px h-3 bg-gray-300"></span>
+              <div className="flex items-center gap-1.5">
+                <span className="font-medium text-gray-500 whitespace-nowrap">Location ID:</span>
+                <span className="font-mono text-gray-700 break-all">{dashboard?.account.location_id}</span>
+              </div>
+            </div>
+
+            {/* Integration Info */}
+            <div className="flex flex-wrap items-center gap-3 text-gray-600">
+              <div className="flex items-center gap-1.5">
+                <span className="font-medium text-gray-500">Transmit:</span>
+                <span>{dashboard?.mapping?.transmit_account_name}</span>
+              </div>
+              {dashboard?.mapping?.mapped_at && (
+                <>
+                  <span className="hidden sm:inline-block w-px h-3 bg-gray-300"></span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
+                    <span>Connected {formatDistanceToNow(new Date(dashboard.mapping?.mapped_at), { addSuffix: true })}</span>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
         </div>
       </div>
-      <div className="p-2 md:p-6 w-full mx-auto space-y-6">
+      
+      <div className="p-2 py-6 sm:p-6 sm:px-11 md:px-16 lg:px-32 w-full mx-auto space-y-6">
         {/* Key Metrics */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 text-white">
+          <div className="bg-gradient-to-r from-green-600 to-green-500 rounded-2xl shadow-[0_0_15px_rgba(0,0,0,0.3)] p-4">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Wallet Balance</p>
-                <p className="text-2xl font-bold text-green-600">
+              <div className="px-4 py-1 flex flex-col gap-3 md:gap-4">
+                <p className="text-sm md:text-lg tracking-wide font-semibold">Wallet Balance</p>
+                <p className="text-2xl md:text-3xl font-bold opacity-95">
                   ${dashboard?.wallet.balance}
                 </p>
               </div>
-              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+              {/* <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
                 <span className="text-green-600 text-xl">💳</span>
-              </div>
+              </div> */}
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
+          <div className="bg-gradient-to-r from-cyan-600 to-cyan-500 rounded-2xl shadow-[0_0_15px_rgba(0,0,0,0.3)] p-4">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Messages Sent</p>
-                <p className="text-2xl font-bold text-blue-600">
+              <div className="sm:px-4 py-1 flex flex-col gap-3 md:gap-4">
+                <p className="text-sm md:text-lg tracking-wide font-semibold">Messages Sent</p>
+                <p className="text-2xl md:text-3xl font-bold opacity-95">
                   {dashboard?.messages_summary.total_sent}
                 </p>
               </div>
-              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+              {/* <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
                 <span className="text-blue-600 text-xl">📤</span>
-              </div>
+              </div> */}
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
+          <div className="bg-gradient-to-r from-yellow-600 to-yellow-500 rounded-2xl shadow-[0_0_15px_rgba(0,0,0,0.3)] p-4">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Messages Delivered</p>
-                <p className="text-2xl font-bold text-green-600">
+              <div className="sm:px-4 py-1 flex flex-col gap-3 md:gap-4">
+                <p className="text-sm md:text-lg tracking-wide font-semibold">Messages Delivered</p>
+                <p className="text-2xl md:text-3xl font-bold opacity-95">
                   {dashboard?.messages_summary.total_delivered}
                 </p>
               </div>
-              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+              {/* <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
                 <span className="text-green-600 text-xl">✅</span>
-              </div>
+              </div> */}
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
+          <div className="bg-gradient-to-r from-red-600 to-red-500 rounded-2xl shadow-[0_0_15px_rgba(0,0,0,0.3)] p-4">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Failed Messages</p>
-                <p className="text-2xl font-bold text-red-600">
+              <div className="sm:px-4 py-1 flex flex-col gap-3 md:gap-4">
+                <p className="text-sm md:text-lg tracking-wide font-semibold">Failed Messages</p>
+                <p className="text-2xl md:text-3xl font-bold opacity-95">
                   {dashboard?.messages_summary.total_failed}
                 </p>
               </div>
-              <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
+              {/* <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
                 <span className="text-red-600 text-xl">❌</span>
-              </div>
+              </div> */}
             </div>
           </div>
         </div>
 
         {/* Additional Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white rounded-lg shadow-sm p-4 border">
-            <h3 className="font-semibold mb-2">Message Direction</h3>
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Outbound</span>
-                <span className="font-medium">
-                  {dashboard?.messages_summary.outbound_count}
-                </span>
+        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-white rounded-lg shadow-sm py-2 px-3 sm:px-4 border border-gray-200">
+            <h3 className="font-semibold mb-1 sm:mb-3 text-gray-800 text-sm sm:text-md">Message Direction</h3>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <div className="text-xs text-gray-500">Outbound</div>
+                <div className="text-sm font-semibold text-gray-900 sm:text-lg">{dashboard?.messages_summary.outbound_count}</div>
               </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Inbound</span>
-                <span className="font-medium">
-                  {dashboard?.messages_summary.inbound_count}
-                </span>
+              <div>
+                <div className="text-xs text-gray-500">Inbound</div>
+                <div className="text-sm font-semibold text-gray-900 sm:text-lg">{dashboard?.messages_summary.inbound_count}</div>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm p-4 border">
-            <h3 className="font-semibold mb-2">Pricing</h3>
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Inbound</span>
-                <span className="font-medium">
-                  ${dashboard?.wallet.inbound_segment_charge}/seg
-                </span>
+          <div className="bg-white rounded-lg shadow-sm py-2 px-3 sm:px-4 border border-gray-200">
+            <h3 className="font-semibold mb-1 sm:mb-3 text-gray-800 text-sm sm:text-md">Pricing</h3>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <div className="text-xs text-gray-500">Inbound</div>
+                <div className="text-sm sm:text-lg font-semibold text-gray-900">${dashboard?.wallet.inbound_segment_charge}</div>
               </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Outbound</span>
-                <span className="font-medium">
-                  ${dashboard?.wallet.outbound_segment_charge}/seg
-                </span>
+              <div>
+                <div className="text-xs text-gray-500">Outbound</div>
+                <div className="text-sm sm:text-lg font-semibold text-gray-900">${dashboard?.wallet.outbound_segment_charge}</div>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm p-4 border">
-            <h3 className="font-semibold mb-2">Spending Summary</h3>
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Total Spent</span>
-                <span className="font-medium text-red-600">
-                  ${dashboard?.wallet.total_spent}
-                </span>
+          <div className="bg-white rounded-lg shadow-sm py-2 px-3 sm:px-4 border border-gray-200">
+            <h3 className="font-semibold mb-1 sm:mb-3 text-gray-800 text-sm sm:text-md">Spending</h3>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <div className="text-xs text-gray-500">Spent</div>
+                <div className="text-sm sm:text-lg font-semibold text-red-600">${dashboard?.wallet.total_spent}</div>
               </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Total Credits</span>
-                <span className="font-medium text-green-600">
-                  ${dashboard?.wallet.total_credits}
-                </span>
+              <div>
+                <div className="text-xs text-gray-500">Credits</div>
+                <div className="text-sm sm:text-lg font-semibold text-green-600">${dashboard?.wallet.total_credits}</div>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm p-4 border">
-            <h3 className="font-semibold mb-2">Alerts</h3>
-            <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Low Balance</span>
-                <span
-                  className={`text-xs px-2 py-1 rounded-full ${
-                    dashboard?.alerts.low_balance
-                      ? "bg-red-100 text-red-800"
-                      : "bg-green-100 text-green-800"
-                  }`}
-                >
-                  {dashboard?.alerts.low_balance ? "Yes" : "No"}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Pending</span>
-                <span className="font-medium">
-                  {dashboard?.alerts.pending_messages}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Failed</span>
-                <span className="font-medium text-red-600">
-                  {dashboard?.alerts.failed_messages}
-                </span>
-              </div>
+          <div className="bg-white rounded-lg shadow-sm py-2 px-3 sm:px-4 border border-gray-200">
+            <h3 className="font-semibold mb-1 sm:mb-3 text-gray-800 text-sm sm:text-md">Alerts</h3>
+            <div className="flex items-center gap-3 text-xs sm:text-sm">
+              <span className={`px-2 py-1 rounded ${dashboard?.alerts.low_balance ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"}`}>
+                {dashboard?.alerts.low_balance ? "Low" : "OK"}
+              </span>
+              <span className="text-gray-500">Pending: <span className="text-gray-900 font-medium">{dashboard?.alerts.pending_messages}</span></span>
+              <span className="text-gray-500">Failed: <span className="text-red-600 font-medium">{dashboard?.alerts.failed_messages}</span></span>
             </div>
           </div>
         </div>
-
+        
         {/* Account & Mapping Info */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="bg-white rounded-lg shadow-sm p-4 border">
             <h3 className="font-semibold mb-3">Account Details</h3>
             <div className="space-y-2">
@@ -434,7 +457,7 @@ export default function UserDashboard() {
               )}
             </div>
           </div>
-        </div>
+        </div> */}
 
         {/* Tabs */}
         <div>
