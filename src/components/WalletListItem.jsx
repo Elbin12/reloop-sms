@@ -65,9 +65,9 @@ export const WalletListItem = ({
                 transaction.transaction_type === "credit" ? "text-green-600" : "text-red-600"
                 }`}
             >
-                {transaction.transaction_type === "credit" ? "+" : "-"}${Number(transaction.amount).toFixed(2)}
+                {transaction.transaction_type === "credit" ? "+" : "-"}${transaction.amount}
             </div>
-            <div className="text-xs text-gray-500">Balance: ${Number(transaction.balance_after).toFixed(2)}</div>
+            <div className="text-xs text-gray-500">Balance: ${transaction.balance_after}</div>
             </div>
         </div>
     )
@@ -84,9 +84,9 @@ export const WalletListItem = ({
             >
               {expanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">{wallet.account.location_name}</h3>
+                <h3 className="text-lg font-semibold text-gray-900">{wallet.location_name}</h3>
                 <p className="text-sm text-gray-500">
-                  {wallet.account.user_id} • {wallet.account.business_email}
+                  {wallet.account_user_id} • {wallet.business_email}
                 </p>
               </div>
             </button>
@@ -94,7 +94,7 @@ export const WalletListItem = ({
 
           <div className="flex items-center space-x-4">
             <div className="text-right">
-              <div className="text-2xl font-bold text-gray-900">${wallet.balance.toFixed(2)}</div>
+              <div className="text-2xl font-bold text-gray-900">${wallet.balance}</div>
               <span
                 className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${balanceStatus.color}`}
               >
@@ -103,17 +103,17 @@ export const WalletListItem = ({
             </div>
 
             <div className="text-right text-sm text-gray-500">
-              <div>In: ${wallet.inbound_segment_charge.toFixed(3)}</div>
-              <div>Out: ${wallet.outbound_segment_charge.toFixed(3)}</div>
+              <div>In: ${wallet.inbound_segment_charge}</div>
+              <div>Out: ${wallet.outbound_segment_charge}</div>
             </div>
 
-            {/* <button
+            <button
               onClick={() => onAddFunds(wallet)}
-              className="flex items-center space-x-1 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+              className="flex items-center space-x-1 px-3 py-2 border border-indigo-400 text-indigo-700 rounded-lg hover:bg-indigo-50"
             >
-              <Plus className="w-4 h-4" />
-              <span>Add Funds</span>
-            </button> */}
+              {/* <Plus className="w-4 h-4" /> */}
+              <span>Manage Funds</span>
+            </button>
           </div>
         </div>
 

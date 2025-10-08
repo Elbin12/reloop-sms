@@ -77,7 +77,7 @@ const StatusIndicator = ({ status, label }) => {
 const Dashboard = () => {
   const [filters, setFilters] = useState({
     days: 30,
-    account_id: ''
+    account_name: ''
   });
   
   const [messageSortBy, setMessageSortBy] = useState('created_at');
@@ -91,7 +91,7 @@ const Dashboard = () => {
     refetch 
   } = useGetDashboardApiQuery({
     days: filters.days,
-    ...(filters.account_id && { account_id: filters.account_id })
+    ...(filters.account_name && { account_name: filters.account_name })
   });
 
   const data = dashboardData?.data;
@@ -238,12 +238,12 @@ const Dashboard = () => {
           
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Account ID (Optional)
+              Account Name
             </label>
             <input
               type="text"
-              value={filters.account_id}
-              onChange={(e) => handleFilterChange('account_id', e.target.value)}
+              value={filters.account_name}
+              onChange={(e) => handleFilterChange('account_name', e.target.value)}
               placeholder="Enter account ID..."
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />

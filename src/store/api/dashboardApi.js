@@ -12,10 +12,22 @@ export const dashboardApi = createApi({
         method: 'GET',
         params: filters,
         })
-    })
+    }),
+    modifyFunds: builder.mutation({
+      query: ({ location_id, action, amount, reference_id }) => ({
+        url: `wallet/${location_id}/add-funds/`,
+        method: 'POST',
+        data: {
+          action,
+          amount,
+          reference_id,
+        },
+      }),
+    }),
   }),
 });
 
 export const {
   useGetDashboardApiQuery,
+  useModifyFundsMutation
 } = dashboardApi;

@@ -31,6 +31,8 @@ const TransmitAccounts = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingAccount, setEditingAccount] = useState(null);
 
+  const [errors, setErrors] = useState({});
+
   const [newAccount, setNewAccount] = useState({
     name: '',
     accountId: '',
@@ -39,7 +41,9 @@ const TransmitAccounts = () => {
     region: 'US',
     status: 'active',
     leasedNumbers: '',
-    notes: ''
+    notes: '',
+    phone_number:"",
+    email:""
   });
 
   const accounts = accountsData?.results || [];
@@ -52,6 +56,55 @@ const TransmitAccounts = () => {
     account?.account_id?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const validateAccount = () => {
+    const newErrors = {};
+
+    // Helper regex patterns
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const phoneRegex = /^\+?\d{7,15}$/; // Accepts digits with optional leading '+', length between 7-15
+
+    // Basic required checks
+    if (!newAccount.name.trim()) {
+      newErrors.name = 'Account name is required';
+    }
+
+    // Account ID: only numbers (and only required in "add" mode)
+    if (!showEditModal) {
+      if (!newAccount.accountId.trim()) {
+        newErrors.accountId = 'Account ID is required';
+      } else if (!/^\d+$/.test(newAccount.accountId.trim())) {
+        newErrors.accountId = 'Account ID must be a number';
+      }
+    }
+
+    // Email validation
+    if (!newAccount.email.trim()) {
+      newErrors.email = 'Email is required';
+    } else if (!emailRegex.test(newAccount.email.trim())) {
+      newErrors.email = 'Enter a valid email address';
+    }
+
+    // Phone number validation
+    if (!newAccount.phone_number.trim()) {
+      newErrors.phone_number = 'Phone number is required';
+    } else if (!phoneRegex.test(newAccount.phone_number.trim())) {
+      newErrors.phone_number = 'Enter a valid phone number';
+    }
+
+    // API key & secret
+    if (!newAccount.apiKey.trim()) {
+      newErrors.apiKey = 'API Key is required';
+    }
+
+    if (!newAccount.apiSecret.trim()) {
+      newErrors.apiSecret = 'API Secret is required';
+    }
+
+    return newErrors;
+  };
+
+
+
   const handleInputChange = (e) => {
     setNewAccount({
       ...newAccount,
@@ -61,14 +114,22 @@ const TransmitAccounts = () => {
 
   const handleAddAccount = async (e) => {
     e.preventDefault();
+    const validationErrors = validateAccount();
+      if (Object.keys(validationErrors).length > 0) {
+        setErrors(validationErrors);
+        return;
+      }
     try {
       await createAccount({
         account_name: newAccount.name,
         api_key: newAccount.apiKey,
         api_secret: newAccount.apiSecret,
-        account_id: newAccount.accountId
+        account_id: newAccount.accountId,
+        phone_number: newAccount.phone_number,
+        email: newAccount.email
       }).unwrap();
       setShowAddAccount(false);
+      setErrors({})
       setNewAccount({
         name: '',
         accountId: '',
@@ -77,7 +138,9 @@ const TransmitAccounts = () => {
         region: 'US',
         status: 'active',
         leasedNumbers: '',
-        notes: ''
+        notes: '',
+        phone_number:'',
+        email:''
       });
       setPage(1);
       refetch();
@@ -107,13 +170,20 @@ const TransmitAccounts = () => {
       accountId: account.account_id || '',
       region: account.region || 'US',
       leasedNumbers: account.leasedNumbers?.join(', ') || '',
-      notes: account.notes || ''
+      notes: account.notes || '',
+      phone_number: account.phone_number,
+      email: account.email
     });
     setShowEditModal(true);
   };
 
   const handleUpdateAccount = async (e) => {
     e.preventDefault();
+    const validationErrors = validateAccount();
+      if (Object.keys(validationErrors).length > 0) {
+        setErrors(validationErrors);
+        return;
+      }
     if (editingAccount?.id && newAccount.name && newAccount.apiKey) {
       try {
         await updateAccount({
@@ -121,9 +191,12 @@ const TransmitAccounts = () => {
           account_name: newAccount.name,
           api_key: newAccount.apiKey,
           api_secret: newAccount.apiSecret,
-          account_id: newAccount.accountId
+          account_id: newAccount.accountId,
+          phone_number: newAccount.phone_number,
+          email: newAccount.email
         }).unwrap();
         setShowEditModal(false);
+        setErrors({});
         setEditingAccount(null);
         refetch();
       } catch (err) {
@@ -148,6 +221,8 @@ const TransmitAccounts = () => {
               accountId: '',
               apiKey: '',
               apiSecret: '',
+              phone_number:"",
+              email:''
             });
             setShowAddAccount(true);
           }}
@@ -194,7 +269,6 @@ const TransmitAccounts = () => {
                 <th className="px-6 py-3 text-left font-medium text-gray-500 uppercase">Status</th>
                 <th className="px-6 py-3 text-left font-medium text-gray-500 uppercase">PHONE NO</th>
                 <th className="px-6 py-3 text-left font-medium text-gray-500 uppercase">EMAIL</th>
-                <th className="px-6 py-3 text-left font-medium text-gray-500 uppercase">BALANCE</th>
                 <th className="px-6 py-3 text-left font-medium text-gray-500 uppercase">TIMEZONE</th>
                 <th className="px-6 py-3 text-left font-medium text-gray-500 uppercase">CREATED AT</th>
                 {/* <th className="px-6 py-3 text-left font-medium text-gray-500 uppercase">Actions</th> */}
@@ -214,17 +288,16 @@ const TransmitAccounts = () => {
                   </td>
                   <td className="px-6 py-4">{account.phone_number}</td>
                   <td className="px-6 py-4">{account.email}</td>
-                  <td className="px-6 py-4">{account.balance}</td>
                   <td className="px-6 py-4">{account.timezone}</td>
                   <td className="px-6 py-4">{account.created_at}</td>
-                  {/* <td className="px-6 py-4 space-x-2">
+                  <td className="px-6 py-4 space-x-2">
                     <button onClick={() => handleEditAccount(account)} className="text-blue-600 hover:text-blue-800">
                       <Edit className="w-4 h-4" />
                     </button>
-                    <button onClick={() => handleDeleteAccount(account.id)} className="text-red-600 hover:text-red-800">
+                    {/* <button onClick={() => handleDeleteAccount(account.id)} className="text-red-600 hover:text-red-800">
                       <Trash2 className="w-4 h-4" />
-                    </button>
-                  </td> */}
+                    </button> */}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -256,14 +329,14 @@ const TransmitAccounts = () => {
       </div>
 
       {showAddAccount && (
-        <Modal title="Add Transmit SMS Account" onClose={() => setShowAddAccount(false)} onSubmit={handleAddAccount}>
-          <AccountForm newAccount={newAccount} handleInputChange={handleInputChange} />
+        <Modal title="Add Transmit SMS Account" onClose={() => {setShowAddAccount(false); setErrors();}} onSubmit={handleAddAccount}>
+          <AccountForm newAccount={newAccount} handleInputChange={handleInputChange} mode="add" errors={errors}/>
         </Modal>
       )}
 
       {showEditModal && (
-        <Modal title="Edit Transmit SMS Account" onClose={() => setShowEditModal(false)} onSubmit={handleUpdateAccount}>
-          <AccountForm newAccount={newAccount} handleInputChange={handleInputChange} />
+        <Modal title="Edit Transmit SMS Account" onClose={() => {setShowEditModal(false); setErrors();}} onSubmit={handleUpdateAccount}>
+          <AccountForm newAccount={newAccount} handleInputChange={handleInputChange} mode="edit" errors={errors}/>
         </Modal>
       )}
     </div>
@@ -287,14 +360,20 @@ const StatCard = ({ label, value, icon }) => (
 
 const Modal = ({ title, children, onClose, onSubmit }) => (
   <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4">
+    <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] mx-4 flex flex-col">
       <div className="flex items-center justify-between p-6 border-b border-gray-200">
         <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
         <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
           <X className="w-5 h-5" />
         </button>
       </div>
-      <form onSubmit={onSubmit} className="p-6 space-y-4">
+      <form onSubmit={onSubmit} className="p-6 space-y-4 overflow-y-auto flex-1"
+        style={{
+          overflowY: 'auto',
+          scrollbarWidth: 'thin', // Firefox
+          msOverflowStyle: 'none', // IE/Edge
+        }}
+      >
         {children}
         <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
           <button type="button" onClick={onClose} className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50">Cancel</button>
@@ -305,7 +384,7 @@ const Modal = ({ title, children, onClose, onSubmit }) => (
   </div>
 );
 
-const AccountForm = ({ newAccount, handleInputChange }) => (
+const AccountForm = ({ newAccount, handleInputChange, mode, errors }) => (
   <>
     <div>
       <label className="block text-sm font-medium text-gray-700 mb-2">Account Name</label>
@@ -315,19 +394,43 @@ const AccountForm = ({ newAccount, handleInputChange }) => (
         value={newAccount.name}
         onChange={handleInputChange}
         className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-        required
       />
+      {errors?.name && <p className="text-sm text-red-500 mt-1">{errors?.name}</p>}
     </div>
+    {mode==='add' &&
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">Account ID</label>
+        <input
+          type="text"
+          name="accountId"
+          value={newAccount.accountId}
+          onChange={handleInputChange}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+        />
+        {errors?.accountId && <p className="text-sm text-red-500 mt-1">{errors?.accountId}</p>}
+      </div>
+    }
     <div>
-      <label className="block text-sm font-medium text-gray-700 mb-2">Account ID</label>
+      <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
       <input
         type="text"
-        name="accountId"
-        value={newAccount.accountId}
+        name="email"
+        value={newAccount.email}
         onChange={handleInputChange}
         className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-        required
       />
+      {errors?.email && <p className="text-sm text-red-500 mt-1">{errors?.email}</p>}
+    </div>
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
+      <input
+        type="text"
+        name="phone_number"
+        value={newAccount.phone_number}
+        onChange={handleInputChange}
+        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+      />
+      {errors?.phone_number && <p className="text-sm text-red-500 mt-1">{errors?.phone_number}</p>}
     </div>
     <div>
       <label className="block text-sm font-medium text-gray-700 mb-2">API Key</label>
@@ -337,8 +440,8 @@ const AccountForm = ({ newAccount, handleInputChange }) => (
         value={newAccount.apiKey}
         onChange={handleInputChange}
         className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-        required
       />
+      {errors?.apiKey && <p className="text-sm text-red-500 mt-1">{errors?.apiKey}</p>}
     </div>
     <div>
       <label className="block text-sm font-medium text-gray-700 mb-2">API Secret</label>
@@ -348,8 +451,8 @@ const AccountForm = ({ newAccount, handleInputChange }) => (
         value={newAccount.apiSecret}
         onChange={handleInputChange}
         className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-        required
       />
+      {errors?.apiSecret && <p className="text-sm text-red-500 mt-1">{errors?.apiSecret}</p>}
     </div>
   </>
 );

@@ -21,9 +21,11 @@ import {
   MoreHorizontal,
   Grid3X3,
   List,
+  Minus,
 } from "lucide-react"
 import { useGetTransactionsQuery, useGetWalletsQuery, useGetWalletSummaryQuery } from "../store/api/walletApi"
 import { WalletListItem } from "./WalletListItem"
+import { useModifyFundsMutation } from "../store/api/dashboardApi"
 
 const useDebounce = (value, delay) => value
 
@@ -154,6 +156,8 @@ const WalletTransactions = () => {
   const [sortOrder, setSortOrder] = useState("desc")
   const [viewMode, setViewMode] = useState("list") // grid or list
 
+  const [modifyFunds, { isModifyLoading }] = useModifyFundsMutation();
+
   // Pagination states
   const [accountsPage, setAccountsPage] = useState(1)
   const [transactionsPage, setTransactionsPage] = useState(1)
@@ -249,6 +253,7 @@ const WalletTransactions = () => {
     isLoading: walletsLoading,
     isFetching: walletsFetching,
     error: walletsError,
+    refetch: refetchWallets,
   } = useGetWalletsQuery(Object.fromEntries(buildWalletsQueryParams()), {skip:false})
 
   const {
@@ -266,6 +271,7 @@ const WalletTransactions = () => {
     isLoading: walletSummaryLoading,
     isFetching: walletSummaryFetching,
     error: WalletSummaryError,
+    refetch: refetchWalletSummary,
   } = useGetWalletSummaryQuery()
   
 
@@ -339,12 +345,35 @@ const WalletTransactions = () => {
     setShowAddFundsModal(true)
   }
 
-  const handleAddFundsSubmit = () => {
-    console.log(`Adding ${addFundsAmount} to wallet ${selectedWallet.id}`)
-    setShowAddFundsModal(false)
-    setAddFundsAmount("")
-    setSelectedWallet(null)
-  }
+  const handleFundsSubmit = async (actionType) => {
+    if (!selectedWallet?.id || !addFundsAmount) return;
+
+    const action = actionType === 'add' ? 'gift' : 'take';
+    const reference_id = `${action}_${new Date().toISOString().split('T')[0].replace(/-/g, '')}`;
+
+    try {
+      console.log(`Sending ${action} of $${addFundsAmount} to wallet ${selectedWallet.id}`);
+
+      await modifyFunds({
+        location_id: selectedWallet.location_id,
+        action,
+        amount: parseFloat(addFundsAmount),
+        reference_id
+      }).unwrap();
+
+      // Optional: show success toast here
+      refetchWallets();
+      refetchWalletSummary();
+      setShowAddFundsModal(false);
+      setAddFundsAmount('');
+      setSelectedWallet(null);
+
+    } catch (error) {
+      console.error('Failed to modify funds:', error);
+      // Optional: show error toast here
+    }
+  };
+
 
   const toggleAccountExpansion = (walletId) => {
     const newExpanded = new Set(expandedAccounts)
@@ -685,7 +714,7 @@ const WalletTransactions = () => {
           wallet={selectedWallet}
           amount={addFundsAmount}
           onAmountChange={setAddFundsAmount}
-          onSubmit={handleAddFundsSubmit}
+          onSubmit={handleFundsSubmit}
           onClose={() => {
             setShowAddFundsModal(false)
             setAddFundsAmount("")
@@ -906,25 +935,10 @@ const AccountTransactionView = ({
           const currentPage = walletTransactionPages[wallet.id] || 1
           const expanded = expandedAccounts.has(wallet.id)
 
-          const formattedWallet = {
-            id: wallet.id,
-            account: {
-              user_id: wallet.account_user_id,
-              location_name: wallet.location_name,
-              company_id: wallet.company_id,
-              business_email: wallet.business_email || "",
-            },
-            balance: Number.parseFloat(wallet.balance ?? "0"),
-            total_transactions: Number(wallet.total_transactions),
-            inbound_segment_charge: Number.parseFloat(wallet.inbound_segment_charge ?? "0"),
-            outbound_segment_charge: Number.parseFloat(wallet.outbound_segment_charge ?? "0"),
-            updated_at: wallet.updated_at,
-          }
-
           return (
             <WalletListItem
               key={wallet.id}
-              wallet={formattedWallet}
+              wallet={wallet}
               currentPage={currentPage}
               expanded={expanded}
               onPageChange={handleWalletTransactionPageChange}
@@ -1122,23 +1136,48 @@ const AllTransactionsView = ({ transactions, getTransactionIcon }) => (
 // Add Funds Modal Component
 const AddFundsModal = ({ wallet, amount, onAmountChange, onSubmit, onClose }) => {
   const predefinedAmounts = [10, 25, 50, 100, 250, 500]
+  const [actionType, setActionType] = useState("add") 
+
+  const currentBalance = wallet.balance
+  const numericAmount = Number.parseFloat(amount) || 0
+  let newBalance =
+    actionType === "add"
+      ? currentBalance + numericAmount
+      : currentBalance - numericAmount
+
+  if (newBalance < 0) newBalance = 0
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">Add Funds</h3>
+          <h3 className="text-lg font-semibold text-gray-900">{actionType === "add" ? "Add Funds" : "Deduct Funds"}</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <X className="w-5 h-5" />
           </button>
         </div>
         <div className="p-6">
-          <div className="mb-4 p-4 bg-gray-50 rounded-lg">
-            <div className="text-sm font-medium text-gray-700">{wallet.account.location_name}</div>
-            <div className="text-sm text-gray-500">{wallet.account.business_email}</div>
+          <div className="mb-3 p-4 bg-gray-50 rounded-lg">
+            <div className="text-sm font-medium text-gray-700">{wallet.location_name}</div>
+            <div className="text-sm text-gray-500">{wallet.business_email}</div>
             <div className="text-lg font-semibold text-gray-900 mt-2">
-              Current Balance: ${wallet.balance.toFixed(2)}
+              Current Balance: ${wallet.balance}
             </div>
+          </div>
+
+          {/* Action Type Selector */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Select Action
+            </label>
+            <select
+              value={actionType}
+              onChange={(e) => setActionType(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="add">Add</option>
+              <option value="deduct">Deduct</option>
+            </select>
           </div>
 
           {/* Quick Amount Buttons */}
@@ -1151,7 +1190,9 @@ const AddFundsModal = ({ wallet, amount, onAmountChange, onSubmit, onClose }) =>
                   onClick={() => onAmountChange(quickAmount.toString())}
                   className={`px-3 py-2 text-sm border rounded-lg hover:bg-gray-50 ${
                     amount === quickAmount.toString()
-                      ? "border-blue-500 bg-blue-50 text-blue-600"
+                      ? actionType === "add"
+                        ? "border-green-500 bg-green-50 text-green-600"
+                        : "border-red-500 bg-red-50 text-red-600"
                       : "border-gray-300 text-gray-700"
                   }`}
                 >
@@ -1172,9 +1213,17 @@ const AddFundsModal = ({ wallet, amount, onAmountChange, onSubmit, onClose }) =>
               placeholder="Enter custom amount"
             />
             {amount && Number.parseFloat(amount) > 0 && (
-              <div className="p-3 bg-green-50 rounded-lg">
-                <p className="text-sm text-green-700">
-                  New balance will be: ${(wallet.balance + Number.parseFloat(amount)).toFixed(2)}
+              <div
+                className={`p-3 rounded-lg ${
+                  actionType === "add" ? "bg-green-50" : "bg-red-50"
+                }`}
+              >
+                <p
+                  className={`text-sm ${
+                    actionType === "add" ? "text-green-700" : "text-red-700"
+                  }`}
+                >
+                  New balance will be: ${newBalance}
                 </p>
               </div>
             )}
@@ -1188,12 +1237,19 @@ const AddFundsModal = ({ wallet, amount, onAmountChange, onSubmit, onClose }) =>
             Cancel
           </button>
           <button
-            onClick={onSubmit}
+            onClick={()=>{onSubmit(actionType)}}
             disabled={!amount || Number.parseFloat(amount) <= 0}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-300 flex items-center space-x-2"
+            className={`px-4 py-2 text-white rounded-lg flex items-center space-x-2 ${
+              actionType === "add"
+                ? "bg-green-600 hover:bg-green-700"
+                : "bg-red-600 hover:bg-red-700"
+            } disabled:bg-gray-300`}
           >
-            <Plus className="w-4 h-4" />
-            <span>Add ${amount || "0"}</span>
+            {actionType === "add" ?
+              <Plus className="w-4 h-4" />:
+              <Minus className="w-4 h-4" />
+            }
+            <span>{actionType === "add" ? 'Add' : 'Deduct'} ${amount || "0"}</span>
           </button>
         </div>
       </div>
