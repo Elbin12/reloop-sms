@@ -244,7 +244,7 @@ const Dashboard = () => {
               type="text"
               value={filters.account_name}
               onChange={(e) => handleFilterChange('account_name', e.target.value)}
-              placeholder="Enter account ID..."
+              placeholder="Enter account name..."
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>

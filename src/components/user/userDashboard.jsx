@@ -247,9 +247,9 @@ export default function UserDashboard() {
 
         {/* Account & Integration Info Bar */}
         <div className="bg-gray-50 border-t border-gray-200 px-4 md:px-8 lg:px-20 py-2">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2 text-xs">
+          <div className="flex flex-col md:flex-row lg:items-center justify-between gap-2 text-xs">
             {/* Account Info */}
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 text-gray-600">
+            {/* <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 text-gray-600">
               <div className="flex items-center gap-1.5">
                 <span className="font-medium text-gray-500 whitespace-nowrap">Account ID:</span>
                 <span className="font-mono text-gray-700 break-all">{dashboard?.account.id}</span>
@@ -259,23 +259,39 @@ export default function UserDashboard() {
                 <span className="font-medium text-gray-500 whitespace-nowrap">Location ID:</span>
                 <span className="font-mono text-gray-700 break-all">{dashboard?.account.location_id}</span>
               </div>
-            </div>
+            </div> */}
 
             {/* Integration Info */}
-            <div className="flex flex-wrap items-center gap-3 text-gray-600">
-              <div className="flex items-center gap-1.5">
+            <div className="sm:flex sm:flex-wrap items-center gap-3 text-gray-600 hidden">
+              {/* <div className="flex items-center gap-1.5">
                 <span className="font-medium text-gray-500">Transmit:</span>
                 <span>{dashboard?.mapping?.transmit_account_name}</span>
-              </div>
+              </div> */}
+              
               {dashboard?.mapping?.mapped_at && (
-                <>
-                  <span className="hidden sm:inline-block w-px h-3 bg-gray-300"></span>
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
-                    <span>Connected {formatDistanceToNow(new Date(dashboard.mapping?.mapped_at), { addSuffix: true })}</span>
-                  </div>
-                </>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
+                  <span>Connected {formatDistanceToNow(new Date(dashboard.mapping?.mapped_at), { addSuffix: true })}</span>
+                </div>
               )}
+            </div>
+            <div className="flex gap-3 justify-between">
+              <a
+                href={`https://reloop.pro/sms-credit/one-time?locationId=${locationId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-lg text-gray-600 hover:text-green-600 hover:underline transition-colors font-medium text-xs whitespace-nowrap"
+              >
+                One-Time Credit
+              </a>
+              <a
+                href={`https://reloop.pro/sms-credit/account?locationId=${locationId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-lg text-gray-600 hover:text-green-600 hover:underline transition-colors font-medium text-xs whitespace-nowrap"
+              >
+                Recharge Account
+              </a>
             </div>
           </div>
         </div>
