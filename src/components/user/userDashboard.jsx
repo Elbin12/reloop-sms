@@ -5,169 +5,27 @@ import { useSearchParams } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import {
   useGetDashboardQuery,
-  useGetMessagesQuery,
-  useGetTransactionsQuery,
+  useGetNumbersQuery,
+  useRegisterNumberMutation,
 } from "../../store/api/userDashboardApi";
-import MessagesFilters from "./MessagesFilters";
-import TransactionsFilters from "./TransactionsFilter";
-import SortDropdown from "./SortDropdown";
+import MessagesTab from "./tabs/MessagesTab";
+import TransactionsTab from "./tabs/TransactionsTab";
+import NumbersTab from "./tabs/NumbersTab";
 
 export default function UserDashboard() {
   const [searchParams] = useSearchParams();
   const locationId = searchParams.get("locationId");
 
-  // Pagination state
-  const [messagesPage, setMessagesPage] = useState(1);
-  const [transactionsPage, setTransactionsPage] = useState(1);
   const [tabValue, setTabValue] = useState("overview");
-
-  // Messages filters and sorting
-  const [messagesFilters, setMessagesFilters] = useState({
-    status: "",
-    direction: "",
-    to_number: "",
-    from_number: "",
-    sent_at__gte: "",
-    sent_at__lte: "",
-  });
-  const [messagesOrdering, setMessagesOrdering] = useState("-created_at");
-
-  // Transactions filters and sorting
-  const [transactionsFilters, setTransactionsFilters] = useState({
-    transaction_type: "",
-    created_at__gte: "",
-    created_at__lte: "",
-    min_amount: "",
-    max_amount: "",
-  });
-  const [transactionsOrdering, setTransactionsOrdering] =
-    useState("-created_at");
-
-  // Show/hide filters
-  const [showMessagesFilters, setShowMessagesFilters] = useState(false);
-  const [showTransactionsFilters, setShowTransactionsFilters] = useState(false);
-  const [isOpen, setIsOpen] = useState(false);
+  const [visitedTabs, setVisitedTabs] = useState(["overview"]);
 
   // API queries
   const { data: dashboard, isLoading: dashboardLoading } =
     useGetDashboardQuery(locationId);
 
-  const messagesParams = {
-    locationId,
-    page: messagesPage,
-    ordering: messagesOrdering,
-    ...Object.fromEntries(
-      Object.entries(messagesFilters).filter(([_, v]) => v !== "")
-    ),
-  };
-  const {
-    data: messages,
-    isLoading: messagesLoading,
-    isFetching: messagesFetching,
-  } = useGetMessagesQuery(messagesParams, { refetchOnMountOrArgChange: true });
-
-  const transactionsParams = {
-    locationId,
-    page: transactionsPage,
-    ordering: transactionsOrdering,
-    ...Object.fromEntries(
-      Object.entries(transactionsFilters).filter(([_, v]) => v !== "")
-    ),
-  };
-  const {
-    data: transactions,
-    isLoading: transactionsLoading,
-    isFetching: transactionsFetching,
-  } = useGetTransactionsQuery(transactionsParams, {
-    refetchOnMountOrArgChange: true,
-  });
-
-  // Reset pagination when filters change
-  useEffect(() => {
-    setMessagesPage(1);
-  }, [messagesFilters, messagesOrdering]);
-
-  useEffect(() => {
-    setTransactionsPage(1);
-  }, [transactionsFilters, transactionsOrdering]);
-
-  const sortOptions = [
-    {
-      value: "-created_at",
-      label: "Newest first",
-      description: "Most recent messages first",
-    },
-    {
-      value: "created_at",
-      label: "Oldest first",
-      description: "Oldest messages first",
-    },
-    {
-      value: "-cost",
-      label: "Highest cost",
-      description: "Most expensive messages first",
-    },
-    {
-      value: "cost",
-      label: "Lowest cost",
-      description: "Least expensive messages first",
-    },
-    {
-      value: "-segments",
-      label: "Most segments",
-      description: "Messages with most segments first",
-    },
-    {
-      value: "segments",
-      label: "Fewest segments",
-      description: "Messages with fewest segments first",
-    },
-  ];
-
-  const handleSortChange = (value) => {
-    setMessagesOrdering(value);
-    setIsOpen(false);
-  };
-
-  const handleTransactionSortChange = (value) => {
-    setTransactionsOrdering(value);
-    setIsOpen(false);
-  };
-
-  // Helper functions
-  const handleMessagesFilterChange = (field, value) => {
-    setMessagesFilters((prev) => ({ ...prev, [field]: value }));
-  };
-
-  const handleTransactionsFilterChange = (field, value) => {
-    setTransactionsFilters((prev) => ({ ...prev, [field]: value }));
-  };
-
-  const clearMessagesFilters = () => {
-    setMessagesFilters({
-      status: "",
-      direction: "",
-      to_number: "",
-      from_number: "",
-      sent_at__gte: "",
-      sent_at__lte: "",
-    });
-  };
-
-  const clearTransactionsFilters = () => {
-    setTransactionsFilters({
-      transaction_type: "",
-      created_at__gte: "",
-      created_at__lte: "",
-      min_amount: "",
-      max_amount: "",
-    });
-  };
-
-  const getActiveFiltersCount = () => {
-    return Object.values(messagesFilters).filter(
-      (value) => value && value.trim() !== ""
-    ).length;
+  const handleTabChange = (tab) => {
+    setTabValue(tab);
+    setVisitedTabs((prev) => (prev.includes(tab) ? prev : [...prev, tab]));
   };
 
   if (!locationId) {
@@ -207,11 +65,6 @@ export default function UserDashboard() {
     return direction === "outbound"
       ? "bg-blue-50 text-blue-700 border-blue-200"
       : "bg-green-50 text-green-700 border-green-200";
-  };
-
-  const formatDateForInput = (date) => {
-    if (!date) return "";
-    return date.split("T")[0];
   };
 
   return (
@@ -275,7 +128,7 @@ export default function UserDashboard() {
                 </div>
               )}
             </div>
-            <div className="flex gap-3 justify-between">
+            {/* <div className="flex gap-3 justify-between">
               <a
                 href={`https://reloop.pro/sms-credit/one-time?locationId=${locationId}`}
                 target="_blank"
@@ -292,7 +145,7 @@ export default function UserDashboard() {
               >
                 Recharge Account
               </a>
-            </div>
+            </div> */}
           </div>
         </div>
       </div>
@@ -478,10 +331,10 @@ export default function UserDashboard() {
         {/* Tabs */}
         <div>
           <div className="flex justify-between sm:justify-start sm:gap-10 border-b border-gray-200 mb-6">
-            {["overview", "messages", "transactions"].map((tab) => (
+            {["overview", "messages", "transactions", "numbers"].map((tab) => (
               <button
                 key={tab}
-                onClick={() => setTabValue(tab)}
+                onClick={() => handleTabChange(tab)}
                 className={`md:px-6 py-3 text-xs sm:text-sm md:text-base font-medium capitalize transition-colors ${
                   tabValue === tab
                     ? "border-b-2 border-blue-600 text-blue-600"
@@ -633,371 +486,18 @@ export default function UserDashboard() {
           )}
 
           {/* Messages Tab */}
-          {tabValue === "messages" && (
-            <div className="bg-white rounded-lg shadow-sm p-2 sm:p-4 border">
-              <div className="flex justify-between items-center mb-4">
-                <div className="flex items-center gap-2 sm:gap-9">
-                  <h3 className="font-semibold text-sm sm:text-xl">
-                    SMS Messages
-                  </h3>
-                  <SortDropdown
-                    options={[
-                      {
-                        value: "-created_at",
-                        label: "Newest first",
-                        description: "Most recent messages first",
-                      },
-                      {
-                        value: "created_at",
-                        label: "Oldest first",
-                        description: "Oldest messages first",
-                      },
-                      {
-                        value: "-cost",
-                        label: "Highest cost",
-                        description: "Most expensive messages first",
-                      },
-                      {
-                        value: "cost",
-                        label: "Lowest cost",
-                        description: "Least expensive messages first",
-                      },
-                      {
-                        value: "-segments",
-                        label: "Most segments",
-                        description: "Messages with most segments first",
-                      },
-                      {
-                        value: "segments",
-                        label: "Fewest segments",
-                        description: "Messages with fewest segments first",
-                      },
-                    ]}
-                    selectedValue={messagesOrdering}
-                    onChange={handleSortChange}
-                    label="Sort messages by"
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setShowMessagesFilters(!showMessagesFilters)}
-                    className="px-2 sm:px-4 py-1.5 sm:py-2.5 text-xs sm:text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
-                  >
-                    {showMessagesFilters ? "Hide Filters" : "Show Filters"}
-                  </button>
-                </div>
-              </div>
-
-              {/* Messages Filters */}
-              {showMessagesFilters && (
-                <MessagesFilters
-                  filters={messagesFilters}
-                  onChange={handleMessagesFilterChange}
-                  onClear={clearMessagesFilters}
-                />
-              )}
-
-              {messagesFetching ? (
-                <div className="space-y-4">
-                  {[1, 2, 3, 4, 5].map((i) => (
-                    <div
-                      key={i}
-                      className="p-4 border border-gray-200 rounded-lg animate-pulse"
-                    >
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1 space-y-4">
-                          <div className="h-4 bg-gray-300 rounded w-3/4"></div>
-                          <div className="flex items-center gap-2">
-                            <div className="h-3 bg-gray-300 rounded w-16"></div>
-                            <div className="h-3 bg-gray-300 rounded w-10"></div>
-                            <div className="h-3 bg-gray-300 rounded w-12"></div>
-                          </div>
-                        </div>
-                        <div className="text-right ml-4 space-y-7">
-                          <div className="h-4 bg-gray-300 rounded w-12"></div>
-                          <div className="h-3 bg-gray-300 rounded w-16"></div>
-                        </div>
-                      </div>
-
-                      <div className="flex justify-between items-center pt-2 border-t border-gray-100 text-xs text-gray-500 space-x-4">
-                        <div className="flex gap-2">
-                          <div className="h-3 bg-gray-300 rounded w-20"></div>
-                          <div className="h-3 bg-gray-300 rounded w-24"></div>
-                          <div className="h-3 bg-gray-300 rounded w-20"></div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {messages?.results.map((m) => (
-                    <div
-                      key={m.id}
-                      className="p-2 sm:p-4 border border-gray-200 rounded-lg"
-                    >
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <p className="font-medium text-gray-900 mb-2 text-sm sm:text-lg">
-                            {m.message_content}
-                          </p>
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="text-xs sm:text-sm text-gray-600">
-                              {m.direction === "outbound" ? "To" : "From"}:{" "}
-                              {m.direction === "outbound"
-                                ? m.to_number
-                                : m.from_number}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="text-right ml-4">
-                          <p className="font-medium text-lg sm:text-xl">
-                            ${m.cost}
-                          </p>
-                          <p className="text-[0.7rem] sm:text-xs text-gray-500">
-                            {m.segments} segment{m.segments !== 1 ? "s" : ""}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex flex-wrap justify-between items-center gap-3 pt-2 mt-2 text-[0.7rem] sm:text-xs text-gray-500">
-                        <div className="flex flex-wrap gap-2">
-                          <span
-                            className={`px-2 py-1 rounded-full border capitalize ${getStatusColor(
-                              m.status
-                            )}`}
-                          >
-                            {m.status}
-                          </span>
-                          <span
-                            className={`px-2 py-1 rounded-full border capitalize ${getDirectionColor(
-                              m.direction
-                            )}`}
-                          >
-                            {m.direction}
-                          </span>
-                        </div>
-
-                        {/* Dates */}
-                        <div className="flex flex-wrap gap-3">
-                          <span>
-                            Created:{" "}
-                            {formatDistanceToNow(new Date(m.created_at), {
-                              addSuffix: true,
-                            })}
-                          </span>
-                          {m.sent_at && (
-                            <span>
-                              Sent:{" "}
-                              {formatDistanceToNow(new Date(m.sent_at), {
-                                addSuffix: true,
-                              })}
-                            </span>
-                          )}
-                          {m.delivered_at && (
-                            <span>
-                              Delivered:{" "}
-                              {formatDistanceToNow(new Date(m.delivered_at), {
-                                addSuffix: true,
-                              })}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-
-                  {/* Pagination */}
-                  <div className="flex justify-between items-center pt-6 border-t border-gray-200">
-                    <p className="text-sm text-gray-600">
-                      Showing {messages?.results.length} of {messages?.count}{" "}
-                      messages
-                    </p>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() =>
-                          setMessagesPage((p) => Math.max(1, p - 1))
-                        }
-                        disabled={!messages?.previous}
-                        className="px-4 py-2 text-sm border border-gray-300 rounded-md disabled:opacity-50 hover:bg-gray-50"
-                      >
-                        Previous
-                      </button>
-                      <button
-                        onClick={() => setMessagesPage((p) => p + 1)}
-                        disabled={!messages?.next}
-                        className="px-4 py-2 text-sm border border-gray-300 rounded-md disabled:opacity-50 hover:bg-gray-50"
-                      >
-                        Next
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+          {visitedTabs.includes("messages") && tabValue === "messages" && (
+            <MessagesTab locationId={locationId} />
           )}
 
-          {/* Transactions Tab */}
-          {tabValue === "transactions" && (
-            <div className="bg-white rounded-lg shadow-sm p-2 sm:p-4 border">
-              <div className="flex justify-between items-center mb-4">
-                <div className="flex items-center gap-2 sm:gap-9">
-                  <h3 className="font-semibold text-sm sm:text-xl">Transaction History</h3>
-                  <SortDropdown
-                    options={[
-                      {
-                        value: "-created_at",
-                        label: "Newest first",
-                        description: "Most recent transactions first",
-                      },
-                      {
-                        value: "created_at",
-                        label: "Oldest first",
-                        description: "Oldest transactions first",
-                      },
-                      {
-                        value: "-amount",
-                        label: "Highest amount",
-                        description: "Most expensive transactions first",
-                      },
-                      {
-                        value: "amount",
-                        label: "Lowest amount",
-                        description: "Least expensive transactions first",
-                      },
-                    ]}
-                    selectedValue={transactionsOrdering}
-                    onChange={handleTransactionSortChange}
-                    label="Sort transactions by"
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() =>
-                      setShowTransactionsFilters(!showTransactionsFilters)
-                    }
-                    className="px-2 sm:px-4 py-1.5 sm:py-2.5 text-xs sm:text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
-                  >
-                    {showTransactionsFilters ? "Hide Filters" : "Show Filters"}
-                  </button>
-                </div>
-              </div>
-
-              {/* Transactions Filters */}
-              {showTransactionsFilters && (
-                <TransactionsFilters
-                  filters={transactionsFilters}
-                  onChange={handleTransactionsFilterChange}
-                  onClear={clearTransactionsFilters}
-                />
-              )}
-
-              {transactionsFetching ? (
-                <div className="space-y-4">
-                  {[1, 2, 3, 4, 5].map((i) => (
-                    <div
-                      key={i}
-                      className="p-4 border border-gray-200 rounded-lg flex justify-between items-center animate-pulse"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center"></div>
-                        <div className="space-y-2">
-                          <div className="h-4 bg-gray-300 rounded w-32"></div>
-                          <div className="flex gap-2">
-                            <div className="h-3 bg-gray-300 rounded w-20"></div>
-                            <div className="h-3 bg-gray-300 rounded w-16"></div>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="text-right space-y-2">
-                        <div className="h-4 bg-gray-300 rounded w-16 mx-auto"></div>
-                        <div className="h-3 bg-gray-300 rounded w-20 mx-auto"></div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {transactions?.results.map((t) => (
-                    <div
-                      key={t.id}
-                      className="p-4 border border-gray-200 rounded-lg flex justify-between items-center"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div
-                          className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                            t.transaction_type === "credit"
-                              ? "bg-green-100"
-                              : "bg-red-100"
-                          }`}
-                        >
-                          <span className="text-lg">
-                            {t.transaction_type === "credit" ? "↗️" : "↘️"}
-                          </span>
-                        </div>
-                        <div>
-                          <p className="font-medium">{t.description}</p>
-                          <div className="flex items-center gap-3 text-sm text-gray-500 mt-1">
-                            <span>
-                              {formatDistanceToNow(new Date(t.created_at), {
-                                addSuffix: true,
-                              })}
-                            </span>
-                            {t.reference_id && (
-                              <span className="px-2 py-1 bg-gray-100 rounded-full text-xs">
-                                Ref: {t.reference_id.slice(0, 8)}...
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p
-                          className={`font-bold text-lg ${
-                            t.transaction_type === "credit"
-                              ? "text-green-600"
-                              : "text-red-600"
-                          }`}
-                        >
-                          {t.transaction_type === "credit" ? "+" : "-"}$
-                          {t.amount}
-                        </p>
-                        <p className="text-sm text-gray-500">
-                          Balance: ${t.balance_after}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-
-                  {/* Pagination */}
-                  <div className="flex justify-between items-center pt-6 border-t border-gray-200">
-                    <p className="text-sm text-gray-600">
-                      Showing {transactions?.results.length} of{" "}
-                      {transactions?.count} transactions
-                    </p>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() =>
-                          setTransactionsPage((p) => Math.max(1, p - 1))
-                        }
-                        disabled={!transactions?.previous}
-                        className="px-4 py-2 text-sm border border-gray-300 rounded-md disabled:opacity-50 hover:bg-gray-50"
-                      >
-                        Previous
-                      </button>
-                      <button
-                        onClick={() => setTransactionsPage((p) => p + 1)}
-                        disabled={!transactions?.next}
-                        className="px-4 py-2 text-sm border border-gray-300 rounded-md disabled:opacity-50 hover:bg-gray-50"
-                      >
-                        Next
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+          {visitedTabs.includes("transactions") && tabValue === "transactions" && (
+            <TransactionsTab locationId={locationId} />
           )}
+
+          {visitedTabs.includes("numbers") && tabValue === "numbers" && (
+            <NumbersTab locationId={locationId}/>
+          )}
+
         </div>
       </div>
     </>

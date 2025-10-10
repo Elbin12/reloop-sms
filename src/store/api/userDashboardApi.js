@@ -23,9 +23,31 @@ export const dashboardAPi = createApi({
         url:`ghl-account/transactions/`,
         method: "GET",
         params: {...messagesParams}
+      }),
     }),
+    getNumbers: builder.query({
+      query: ({page, locationId}) => ({
+        url: `numbers/${locationId}/`,
+        method: "GET",
+        params: {page:page}
+      }),
+      providesTags: ['Numbers'],
     }),
+    registerNumber: builder.mutation({
+      query: ({ number_id, location_id }) => ({
+        url: `numbers-register/`,
+        method: "POST",
+        data: { number_id, location_id }
+      }),
+      invalidatesTags: ['Numbers'],
     }),
+  }),
 })
 
-export const { useGetDashboardQuery, useGetMessagesQuery, useGetTransactionsQuery } = dashboardAPi;
+export const { 
+  useGetDashboardQuery, 
+  useGetMessagesQuery, 
+  useGetTransactionsQuery,
+  useGetNumbersQuery,
+  useRegisterNumberMutation
+} = dashboardAPi;
