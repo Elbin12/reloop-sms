@@ -128,7 +128,7 @@ export default function UserDashboard() {
                 </div>
               )}
             </div>
-            {/* <div className="flex gap-3 justify-between">
+            <div className="flex gap-3 justify-between">
               <a
                 href={`https://reloop.pro/sms-credit/one-time?locationId=${locationId}`}
                 target="_blank"
@@ -145,7 +145,7 @@ export default function UserDashboard() {
               >
                 Recharge Account
               </a>
-            </div> */}
+            </div>
           </div>
         </div>
       </div>
@@ -265,68 +265,6 @@ export default function UserDashboard() {
             </div>
           </div>
         </div>
-        
-        {/* Account & Mapping Info */}
-        {/* <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="bg-white rounded-lg shadow-sm p-4 border">
-            <h3 className="font-semibold mb-3">Account Details</h3>
-            <div className="space-y-2">
-              <div>
-                <span className="text-sm text-gray-600">Account ID:</span>
-                <p className="font-mono text-xs break-all">
-                  {dashboard?.account.id}
-                </p>
-              </div>
-              <div>
-                <span className="text-sm text-gray-600">Location ID:</span>
-                <p className="font-mono text-xs break-all">
-                  {dashboard?.account.location_id}
-                </p>
-              </div>
-              <div>
-                <span className="text-sm text-gray-600">User ID:</span>
-                <p className="font-mono text-xs break-all">
-                  {dashboard?.account.user_id}
-                </p>
-              </div>
-              <div>
-                <span className="text-sm text-gray-600">Company ID:</span>
-                <p className="font-mono text-xs break-all">
-                  {dashboard?.account.company_id}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-sm p-4 border">
-            <h3 className="font-semibold mb-3">Transmit Integration</h3>
-            <div className="space-y-2">
-              <div>
-                <span className="text-sm text-gray-600">Account Name:</span>
-                <p className="font-medium">
-                  {dashboard?.mapping?.transmit_account_name}
-                </p>
-              </div>
-              <div>
-                <span className="text-sm text-gray-600">Mapping ID:</span>
-                <p className="font-mono text-xs break-all">
-                  {dashboard?.mapping?.id}
-                </p>
-              </div>
-              {dashboard?.mapping?.mapped_at && (
-                <div>
-                  <span className="text-sm text-gray-600">Mapped:</span>
-                  <p className="text-sm">
-                    {formatDistanceToNow(
-                      new Date(dashboard.mapping?.mapped_at),
-                      { addSuffix: true }
-                    )}
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div> */}
 
         {/* Tabs */}
         <div>

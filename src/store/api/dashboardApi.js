@@ -24,10 +24,26 @@ export const dashboardApi = createApi({
         },
       }),
     }),
+    getAvailableNumbers: builder.query({
+      query: (filters) => ({
+        url: `numbers/available/`,
+        method: "GET",
+        params: { ...filters }
+      }),
+      providesTags: ['Numbers']
+    }),
+    getLocationNumbers: builder.query({
+      query: (locationId) => ({
+        url: `numbers/location/${locationId}/`,
+        method: "GET",
+      }),
+    }),
   }),
 });
 
 export const {
   useGetDashboardApiQuery,
-  useModifyFundsMutation
+  useModifyFundsMutation,
+  useGetAvailableNumbersQuery,
+  useGetLocationNumbersQuery
 } = dashboardApi;

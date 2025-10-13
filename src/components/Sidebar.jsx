@@ -18,6 +18,7 @@ import {
   X,
   Wallet2Icon,
   Wallet,
+  Phone,
 } from "lucide-react"
 
 const menuItems = [
@@ -56,6 +57,11 @@ const menuItems = [
     icon: Wallet,
     label: "Wallet Transactions",
     path: "/wallets",
+  },
+  {
+    icon: Phone,
+    label: "Available Numbers",
+    path: "/numbers/available",
   },
   // {
   //   icon: BarChart3,

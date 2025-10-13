@@ -22,6 +22,7 @@ import store from "./store/store"
 import { Provider, useSelector } from "react-redux"
 import WalletTransactions from "./components/WalletTransactions"
 import UserDashboard from "./components/user/userDashboard"
+import AvailableNumbers from "./components/AvailableNumbers"
 
 function RequireAuth({ children }) {
   const location = useLocation()
@@ -70,6 +71,8 @@ function App() {
             <Route path="account-mapping" element={<AccountManagement />} />
             <Route path="sms-monitoring" element={<SMSMonitoring />} />
             <Route path="wallets" element={<WalletTransactions />} />
+            <Route path="numbers/available" element={<AvailableNumbers />} />
+
             <Route path="analytics" element={<Analytics />} />
             <Route path="logs" element={<Logs />} />
             {/* fallback */}
