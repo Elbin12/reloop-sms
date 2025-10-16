@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { useGetNumbersQuery, useRegisterNumberMutation } from "../../../store/api/userDashboardApi";
+import { useDebounce } from "../../../custom_hooks/useDebounce";
 
 export default function NumbersTab({locationId}) {
   const [registeringId, setRegisteringId] = useState(null);
@@ -8,11 +9,16 @@ export default function NumbersTab({locationId}) {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [selectedNumber, setSelectedNumber] = useState(null);
 
+  const [searchTerm, setSearchTerm] = useState("");
+
+  // debounce the search input by 500ms
+  const debouncedSearchTerm = useDebounce(searchTerm, 500);
+
   const {
     data: numbers,
     isLoading: numbersLoading,
     isFetching: numbersFetching,
-  } = useGetNumbersQuery({page: messagesPage, locationId:locationId}, { refetchOnMountOrArgChange: true });
+  } = useGetNumbersQuery({page: messagesPage, locationId:locationId, search: debouncedSearchTerm,}, { refetchOnMountOrArgChange: true });
 
   const [registerNumber, { isLoading: isRegistering }] =
     useRegisterNumberMutation();
@@ -160,6 +166,18 @@ export default function NumbersTab({locationId}) {
             <span className="text-sm text-gray-600 bg-blue-50 px-3 py-1 rounded-full">
               {numbers?.available?.count || 0} available
             </span>
+          </div>
+          <div className="mb-4">
+            <input
+              type="text"
+              placeholder="Search available numbers..."
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setMessagesPage(1); // reset page on new search
+              }}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
           </div>
           <div className="space-y-3 max-h-96 overflow-y-auto">
             {numbers?.available?.results?.length > 0 ? (

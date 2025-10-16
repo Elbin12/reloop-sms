@@ -26,11 +26,14 @@ export const dashboardAPi = createApi({
       }),
     }),
     getNumbers: builder.query({
-      query: ({page, locationId}) => ({
-        url: `numbers/${locationId}/`,
-        method: "GET",
-        params: {page:page}
-      }),
+      query: (filters) => {
+        const { locationId, ...restFilters } = filters;
+        return {
+          url: `numbers/${locationId}/`,
+          method: "GET",
+          params: restFilters,
+        };
+      },
       providesTags: ['Numbers'],
     }),
     registerNumber: builder.mutation({

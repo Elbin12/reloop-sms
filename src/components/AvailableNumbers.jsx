@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import {
   Search,
   Phone,
@@ -15,6 +15,7 @@ import {
   Filter,
 } from "lucide-react"
 import { useGetAvailableNumbersQuery } from "../store/api/dashboardApi"
+import { useDebounce } from "../custom_hooks/useDebounce"
 
 // Shimmer/Skeleton Components
 const Shimmer = ({ className = "" }) => (
@@ -58,6 +59,8 @@ const AvailableNumbers = () => {
   const [currentPage, setCurrentPage] = useState(1)
   const [statusFilter, setStatusFilter] = useState("available")
 
+  const debouncedSearchTerm = useDebounce(searchTerm, 500)
+
   const {
     data: numbersData,
     isLoading,
@@ -66,8 +69,7 @@ const AvailableNumbers = () => {
     refetch,
   } = useGetAvailableNumbersQuery({ 
     page: currentPage,
-    search: searchTerm,
-    status: statusFilter 
+    search: debouncedSearchTerm,
   })
 
   const availableNumbers = numbersData?.available?.results || []
@@ -81,13 +83,17 @@ const AvailableNumbers = () => {
   const nextPage = numbersData?.available?.next
   const previousPage = numbersData?.available?.previous
 
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [debouncedSearchTerm])
+
   const handleRefresh = () => {
     refetch()
   }
 
   const handleSearch = (value) => {
     setSearchTerm(value)
-    setCurrentPage(1)
+    // setCurrentPage(1)
   }
 
   const handlePurchase = (number) => {
@@ -160,7 +166,7 @@ const AvailableNumbers = () => {
       {/* Main Content */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200">
         {/* Filters */}
-        {/* <div className="p-6 border-b border-gray-200">
+        <div className="p-6 border-b border-gray-200">
           <div className="flex flex-col md:flex-row md:items-center space-y-4 md:space-y-0 md:space-x-4">
             <div className="flex-1 relative">
               <Search className="w-5 h-5 absolute left-3 top-3 text-gray-400" />
@@ -173,7 +179,7 @@ const AvailableNumbers = () => {
               />
             </div>
 
-            <select
+            {/* <select
               value={statusFilter}
               onChange={(e) => {
                 setStatusFilter(e.target.value)
@@ -184,9 +190,9 @@ const AvailableNumbers = () => {
               <option value="available">Available</option>
               <option value="registered">Registered</option>
               <option value="owned">Owned</option>
-            </select>
+            </select> */}
           </div>
-        </div> */}
+        </div>
 
         {/* Numbers Grid */}
         <div className="p-6">
