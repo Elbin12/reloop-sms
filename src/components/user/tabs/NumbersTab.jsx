@@ -8,6 +8,7 @@ export default function NumbersTab({locationId}) {
   const [messagesPage, setMessagesPage] = useState(1);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [selectedNumber, setSelectedNumber] = useState(null);
+  const [activeTab, setActiveTab] = useState("available");
 
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -50,6 +51,12 @@ export default function NumbersTab({locationId}) {
     setSelectedNumber(null);
   };
 
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    setSearchTerm("");
+    setMessagesPage(1);
+  };
+
   const ConfirmationModal = () => (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
@@ -82,7 +89,7 @@ export default function NumbersTab({locationId}) {
   );
 
   const NumberCard = ({ number, showRegisterButton = false }) => (
-    <div className="p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
+    <div className="p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow bg-white">
       <div className="flex justify-between items-start">
         <div className="flex-1">
           <p className="text-lg font-bold text-gray-900 font-mono">
@@ -135,134 +142,145 @@ export default function NumbersTab({locationId}) {
   if (numbersLoading) {
     return (
       <div className="space-y-6">
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="bg-white rounded-lg shadow-sm p-4 border">
-            <div className="h-6 bg-gray-300 rounded w-32 mb-4 animate-pulse"></div>
-            <div className="space-y-3">
-              {[1, 2].map((j) => (
-                <div
-                  key={j}
-                  className="p-4 border border-gray-200 rounded-lg animate-pulse"
-                >
-                  <div className="h-4 bg-gray-300 rounded w-40"></div>
-                  <div className="h-3 bg-gray-300 rounded w-24 mt-2"></div>
-                </div>
-              ))}
-            </div>
+        <div className="flex gap-2 border-b border-gray-200">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-10 w-32 bg-gray-300 rounded-t animate-pulse"></div>
+          ))}
+        </div>
+        <div className="bg-white rounded-lg shadow-sm p-4 border">
+          <div className="space-y-3">
+            {[1, 2, 3].map((j) => (
+              <div
+                key={j}
+                className="p-4 border border-gray-200 rounded-lg animate-pulse"
+              >
+                <div className="h-4 bg-gray-300 rounded w-40"></div>
+                <div className="h-3 bg-gray-300 rounded w-24 mt-2"></div>
+              </div>
+            ))}
           </div>
-        ))}
+        </div>
       </div>
     );
   }
 
+  const currentData = {
+    available: numbers?.available,
+    registered: numbers?.registered,
+    owned: numbers?.owned,
+  }[activeTab];
+
   return (
     <>
       {showConfirmModal && <ConfirmationModal />}
+      
       <div className="space-y-6">
-        {/* Available Numbers */}
-        <div className="bg-white rounded-lg shadow-sm p-4 border">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-lg">Available Numbers</h3>
-            <span className="text-sm text-gray-600 bg-blue-50 px-3 py-1 rounded-full">
-              {numbers?.available?.count || 0} available
+        {/* Tabs */}
+        <div className="flex gap-9 border-b border-gray-200">
+          <button
+            onClick={() => handleTabChange("available")}
+            className={`py-3 font-medium text-xs md:text-sm transition-colors relative ${
+              activeTab === "available"
+                ? "text-blue-600 border-b-2 border-blue-600"
+                : "text-gray-600 hover:text-gray-900"
+            }`}
+          >
+            Available
+            <span className="ml-2 py-0.5 text-xs rounded-full bg-blue-50 text-blue-700">
+              {numbers?.available?.count || 0}
             </span>
-          </div>
-          <div className="mb-4">
-            <input
-              type="text"
-              placeholder="Search available numbers..."
-              value={searchTerm}
-              onChange={(e) => {
-                setSearchTerm(e.target.value);
-                setMessagesPage(1); // reset page on new search
-              }}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
+          </button>
+          <button
+            onClick={() => handleTabChange("registered")}
+            className={`py-3 font-medium text-xs md:text-sm transition-colors relative ${
+              activeTab === "registered"
+                ? "text-green-600 border-b-2 border-green-600"
+                : "text-gray-600 hover:text-gray-900"
+            }`}
+          >
+            Registered
+            <span className="ml-2 py-0.5 text-xs rounded-full bg-green-50 text-green-700">
+              {numbers?.registered?.count || 0}
+            </span>
+          </button>
+          <button
+            onClick={() => handleTabChange("owned")}
+            className={`py-3 font-medium text-xs md:text-sm transition-colors relative ${
+              activeTab === "owned"
+                ? "text-purple-600 border-b-2 border-purple-600"
+                : "text-gray-600 hover:text-gray-900"
+            }`}
+          >
+            Owned
+            <span className="ml-2 py-0.5 text-xs rounded-full bg-purple-50 text-purple-700">
+              {numbers?.owned?.count || 0}
+            </span>
+          </button>
+        </div>
+
+        {/* Tab Content */}
+        <div className="bg-white rounded-lg shadow-sm border p-4">
+          {/* Search - only show for available numbers */}
+          {activeTab === "available" && currentData?.results?.length > 0 &&(
+            <div className="mb-4">
+              <input
+                type="text"
+                placeholder="Search available numbers..."
+                value={searchTerm}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setMessagesPage(1);
+                }}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          )}
+
+          {/* Numbers List */}
           <div className="space-y-3 max-h-96 overflow-y-auto">
-            {numbers?.available?.results?.length > 0 ? (
-              numbers.available.results.map((number) => (
+            {currentData?.results?.length > 0 ? (
+              currentData.results.map((number) => (
                 <NumberCard
                   key={number.id}
                   number={number}
-                  showRegisterButton={true}
+                  showRegisterButton={activeTab === "available"}
                 />
               ))
             ) : (
               <p className="text-gray-500 text-center py-8">
-                No available numbers
+                No {activeTab} numbers
               </p>
             )}
           </div>
 
-          {/* Pagination */}
-          <div className="flex justify-between items-center pt-6 border-t border-gray-200">
-            <div className="mt-4 text-center">
-              <p className="text-sm text-gray-600">
-                Showing {(messagesPage - 1) * 10 + 1}–
-                {(messagesPage - 1) * 10 + numbers.available.results.length} of{" "}
-                {numbers.available.count}
-              </p>
-            </div>
-            <div className="flex gap-2">
+          {/* Pagination - only show for available numbers */}
+          {activeTab === "available" && currentData?.results?.length > 0 && (
+            <div className="flex justify-between items-center pt-6 border-t border-gray-200 mt-4">
+              <div className="text-center">
+                <p className="text-sm text-gray-600">
+                  Showing {(messagesPage - 1) * 10 + 1}–
+                  {(messagesPage - 1) * 10 + currentData.results.length} of{" "}
+                  {currentData.count}
+                </p>
+              </div>
+              <div className="flex gap-2">
                 <button
-                onClick={() =>
-                    setMessagesPage((p) => Math.max(1, p - 1))
-                }
-                disabled={!numbers?.available.previous}
-                className="px-4 py-2 text-sm border border-gray-300 rounded-md disabled:opacity-50 hover:bg-gray-50"
+                  onClick={() => setMessagesPage((p) => Math.max(1, p - 1))}
+                  disabled={!currentData.previous}
+                  className="px-4 py-2 text-sm border border-gray-300 rounded-md disabled:opacity-50 hover:bg-gray-50"
                 >
-                Previous
+                  Previous
                 </button>
                 <button
-                onClick={() => setMessagesPage((p) => p + 1)}
-                disabled={!numbers?.available.next}
-                className="px-4 py-2 text-sm border border-gray-300 rounded-md disabled:opacity-50 hover:bg-gray-50"
+                  onClick={() => setMessagesPage((p) => p + 1)}
+                  disabled={!currentData.next}
+                  className="px-4 py-2 text-sm border border-gray-300 rounded-md disabled:opacity-50 hover:bg-gray-50"
                 >
-                Next
+                  Next
                 </button>
+              </div>
             </div>
-          </div>
-        </div>
-
-        {/* Registered Numbers */}
-        <div className="bg-white rounded-lg shadow-sm p-4 border">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-lg">Registered Numbers</h3>
-            <span className="text-sm text-gray-600 bg-green-50 px-3 py-1 rounded-full">
-              {numbers?.registered?.count || 0} registered
-            </span>
-          </div>
-          <div className="space-y-3">
-            {numbers?.registered?.results?.length > 0 ? (
-              numbers.registered.results.map((number) => (
-                <NumberCard key={number.id} number={number} />
-              ))
-            ) : (
-              <p className="text-gray-500 text-center py-8">
-                No registered numbers
-              </p>
-            )}
-          </div>
-        </div>
-
-        {/* Owned Numbers */}
-        <div className="bg-white rounded-lg shadow-sm p-4 border">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-lg">Owned Numbers</h3>
-            <span className="text-sm text-gray-600 bg-purple-50 px-3 py-1 rounded-full">
-              {numbers?.owned?.count || 0} owned
-            </span>
-          </div>
-          <div className="space-y-3">
-            {numbers?.owned?.results?.length > 0 ? (
-              numbers.owned.results.map((number) => (
-                <NumberCard key={number.id} number={number} />
-              ))
-            ) : (
-              <p className="text-gray-500 text-center py-8">No owned numbers</p>
-            )}
-          </div>
+          )}
         </div>
       </div>
     </>
