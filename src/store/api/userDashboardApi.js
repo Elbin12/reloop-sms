@@ -29,7 +29,7 @@ export const dashboardAPi = createApi({
       query: (filters) => {
         const { locationId, ...restFilters } = filters;
         return {
-          url: `numbers/${locationId}/`,
+          url: `numbers/location/${locationId}/`,
           method: "GET",
           params: restFilters,
         };
@@ -37,10 +37,18 @@ export const dashboardAPi = createApi({
       providesTags: ['Numbers'],
     }),
     registerNumber: builder.mutation({
-      query: ({ number_id, location_id }) => ({
+      query: ({ number, location_id }) => ({
         url: `numbers-register/`,
         method: "POST",
-        data: { number_id, location_id }
+        data: { number, location_id }
+      }),
+      invalidatesTags: ['Numbers'],
+    }),
+    requestPremiumNumber: builder.mutation({
+      query: ({ number, location_id }) => ({
+        url: `numbers-request-premium/`,
+        method: "POST",
+        data: { number, location_id }
       }),
       invalidatesTags: ['Numbers'],
     }),
@@ -52,5 +60,6 @@ export const {
   useGetMessagesQuery, 
   useGetTransactionsQuery,
   useGetNumbersQuery,
-  useRegisterNumberMutation
+  useRegisterNumberMutation,
+  useRequestPremiumNumberMutation
 } = dashboardAPi;

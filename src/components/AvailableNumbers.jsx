@@ -72,16 +72,16 @@ const AvailableNumbers = () => {
     search: debouncedSearchTerm,
   })
 
-  const availableNumbers = numbersData?.available?.results || []
+  const availableNumbers = numbersData?.results || []
   const registeredNumbers = numbersData?.registered?.results || []
   const ownedNumbers = numbersData?.owned?.results || []
   
-  const availableCount = numbersData?.available?.count || 0
+  const availableCount = numbersData?.count || 0
   const registeredCount = numbersData?.registered?.count || 0
   const ownedCount = numbersData?.owned?.count || 0
 
-  const nextPage = numbersData?.available?.next
-  const previousPage = numbersData?.available?.previous
+  const nextPage = numbersData?.next
+  const previousPage = numbersData?.previous
 
   useEffect(() => {
     setCurrentPage(1)
@@ -317,14 +317,14 @@ const NumberCard = ({ number, onPurchase, formatPhoneNumber }) => (
     <div className="flex items-center justify-between mb-3">
       <h3 className="text-lg font-semibold text-gray-900">{formatPhoneNumber(number.number)}</h3>
       <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
-        {number.status}
+        {number.label}
       </span>
     </div>
 
     <div className="space-y-2 mb-4">
-      <div className="flex items-center space-x-2 text-sm text-gray-600">
+      <div className="flex items-center text-sm text-gray-600">
         <DollarSign className="w-4 h-4" />
-        <span className="font-medium">${number.price}</span>
+        <span className="text-lg">{number.price}</span>
       </div>
 
       {number.last_synced_at && (

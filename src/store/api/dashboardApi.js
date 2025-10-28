@@ -26,7 +26,7 @@ export const dashboardApi = createApi({
     }),
     getAvailableNumbers: builder.query({
       query: (filters) => ({
-        url: `numbers/available/`,
+        url: `live-numbers/available/`,
         method: "GET",
         params: { ...filters }
       }),
@@ -38,6 +38,13 @@ export const dashboardApi = createApi({
         method: "GET",
       }),
     }),
+    buyPremiumNumbers: builder.mutation({
+      query: ({ payload }) => ({
+        url: `numbers-register-premium/`,
+        method: 'POST',
+        data: { ...payload },
+      }),
+    }),
   }),
 });
 
@@ -45,5 +52,6 @@ export const {
   useGetDashboardApiQuery,
   useModifyFundsMutation,
   useGetAvailableNumbersQuery,
-  useGetLocationNumbersQuery
+  useGetLocationNumbersQuery,
+  useBuyPremiumNumbersMutation,
 } = dashboardApi;

@@ -1,47 +1,78 @@
 import { useState } from "react";
 import { formatDistanceToNow } from "date-fns";
-import { useGetNumbersQuery, useRegisterNumberMutation } from "../../../store/api/userDashboardApi";
+import { useGetNumbersQuery, useRegisterNumberMutation, useRequestPremiumNumberMutation } from "../../../store/api/userDashboardApi";
 import { useDebounce } from "../../../custom_hooks/useDebounce";
+import { useGetAvailableNumbersQuery } from "../../../store/api/dashboardApi";
 
 export default function NumbersTab({locationId}) {
   const [registeringId, setRegisteringId] = useState(null);
-  const [messagesPage, setMessagesPage] = useState(1);
+  const [Page, setPage] = useState(1);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [selectedNumber, setSelectedNumber] = useState(null);
   const [activeTab, setActiveTab] = useState("available");
 
   const [searchTerm, setSearchTerm] = useState("");
 
+  const [requestingPremiumId, setRequestingPremiumId] = useState(null);
+
   // debounce the search input by 500ms
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
+
+  const {
+      data: numbersData,
+      isLoading,
+      isFetching,
+      error,
+      refetch,
+    } = useGetAvailableNumbersQuery({ 
+      page: Page,
+      search: debouncedSearchTerm,
+    })
 
   const {
     data: numbers,
     isLoading: numbersLoading,
     isFetching: numbersFetching,
-  } = useGetNumbersQuery({page: messagesPage, locationId:locationId, search: debouncedSearchTerm,}, { refetchOnMountOrArgChange: true });
+  } = useGetNumbersQuery({page: Page, locationId:locationId, search: debouncedSearchTerm,}, { refetchOnMountOrArgChange: true });
 
   const [registerNumber, { isLoading: isRegistering }] =
     useRegisterNumberMutation();
 
-  const handleRegisterClick = (number) => {
-    console.log(number, "number")
-    setSelectedNumber(number);
+  const [requestPremiumNumber, { isLoading: isRequestingPremium }] = useRequestPremiumNumberMutation();
+
+
+  const handleRegisterClick = (number, isPremium = false) => {
+    console.log(number, "number", isPremium ? "premium" : "standard");
+    setSelectedNumber({ ...number, isPremium });
     setShowConfirmModal(true);
   };
 
   const handleConfirmRegister = async () => {
-    setRegisteringId(selectedNumber.id);
+    const isPremium = selectedNumber.isPremium;
+    
+    if (isPremium) {
+      setRequestingPremiumId(selectedNumber.id);
+    } else {
+      setRegisteringId(selectedNumber.id);
+    }
+
     try {
-      await registerNumber({
-        number_id: selectedNumber.id,
-        location_id: locationId,
-      }).unwrap();
-      // Optional: Show success message
+      if (isPremium) {
+        await registerNumber({
+          number: selectedNumber.number,
+          location_id: locationId,
+        }).unwrap();
+      } else {
+        await registerNumber({
+          number: selectedNumber.number,
+          location_id: locationId,
+        }).unwrap();
+      }
+
       setShowConfirmModal(false);
     } catch (error) {
-        console.error("Failed to register number:", error);
-        alert("Failed to register number. Please try again.");
+        console.error(`Failed to ${isPremium ? 'request' : 'register'} number:`, error);
+        alert(`Failed to ${isPremium ? 'request' : 'register'} number. Please try again.`);
     }
     setRegisteringId(null);
   };
@@ -54,90 +85,152 @@ export default function NumbersTab({locationId}) {
   const handleTabChange = (tab) => {
     setActiveTab(tab);
     setSearchTerm("");
-    setMessagesPage(1);
+    setPage(1);
   };
 
-  const ConfirmationModal = () => (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-        <h3 className="text-xl font-bold text-gray-900 mb-4">
-          Confirm Registration
-        </h3>
-        <p className="text-gray-600 mb-6">
-          Are you sure you want to register the number{" "}
-          <span className="font-mono font-bold text-gray-900">
-            +{selectedNumber?.number  }
-          </span>
-          ?
-        </p>
-        <div className="flex gap-3">
-          <button
-            onClick={handleCancelRegister}
-            className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleConfirmRegister}
-            className="flex-1 px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
-          >
-            Confirm
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-
-  const NumberCard = ({ number, showRegisterButton = false }) => (
-    <div className="p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow bg-white">
-      <div className="flex justify-between items-start">
-        <div className="flex-1">
-          <p className="text-lg font-bold text-gray-900 font-mono">
-            +{number.number}
+  const ConfirmationModal = () => {
+    const isPremium = selectedNumber?.isPremium;
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+          <h3 className="text-xl font-bold text-gray-900 mb-4">
+            {isPremium ? 'Request Premium Number' : 'Confirm Registration'}
+          </h3>
+          <p className="text-gray-600 mb-4">
+            {isPremium 
+              ? 'You are requesting a premium number. This will be reviewed and you will be notified once approved.'
+              : 'Are you sure you want to buy this number?'}
           </p>
-          <div className="flex items-center gap-2 mt-2">
-            <span className="text-sm text-gray-600">
-              Price: <span className="font-semibold">${number.price}</span>
-            </span>
-            <span
-              className={`text-xs px-2 py-1 rounded-full ${
-                number.is_active
-                  ? "bg-green-100 text-green-700"
-                  : "bg-gray-100 text-gray-600"
+          <div className="bg-gray-50 rounded-lg p-4 mb-4 border border-gray-200">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm text-gray-600">Number</span>
+              <span className="font-mono font-bold text-gray-900">
+                +{selectedNumber?.number}
+              </span>
+            </div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm text-gray-600">Type</span>
+              <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                isPremium 
+                  ? 'bg-orange-100 text-orange-700' 
+                  : 'bg-blue-100 text-blue-700'
+              }`}>
+                {selectedNumber?.label || (isPremium ? 'Premium' : 'Standard')}
+              </span>
+            </div>
+            <div className="flex items-center justify-between pt-2 border-t border-gray-200">
+              <span className="text-sm text-gray-600">Price</span>
+              <span className="text-lg font-bold text-gray-900">
+                {selectedNumber?.display_price || `$${selectedNumber?.price}`}
+              </span>
+            </div>
+          </div>
+          {isPremium && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+              <p className="text-xs text-yellow-800">
+                <strong>Note:</strong> Premium numbers require approval. You will be notified once your request is processed.
+              </p>
+            </div>
+          )}
+          <div className="flex gap-3">
+            <button
+              onClick={handleCancelRegister}
+              disabled={isRegistering || isRequestingPremium}
+              className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleConfirmRegister}
+              disabled={isRegistering || isRequestingPremium}
+              className={`flex-1 px-4 py-2.5 text-white rounded-lg transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed ${
+                isPremium 
+                  ? 'bg-orange-600 hover:bg-orange-700' 
+                  : 'bg-green-600 hover:bg-green-700'
               }`}
             >
-              {number.is_active ? "Active" : "Inactive"}
-            </span>
+              {(isRegistering || isRequestingPremium) 
+                ? 'Processing...' 
+                : isPremium 
+                  ? 'Request Number' 
+                  : 'Confirm'}
+            </button>
           </div>
-          {number.last_synced_at && (
-            <p className="text-xs text-gray-500 mt-1">
-              Synced{" "}
-              {formatDistanceToNow(new Date(number.last_synced_at), {
-                addSuffix: true,
-              })}
+        </div>
+      </div>
+    );
+  };
+
+  const NumberCard = ({ number, showRegisterButton = false }) => {
+    const canAutoRegister = number.can_auto_register;
+    const isProcessing = registeringId === number.id || requestingPremiumId === number.id;
+
+    return (
+      <div className="p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow bg-white">
+        <div className="flex justify-between items-start">
+          <div className="flex-1">
+            <p className="text-lg font-bold text-gray-900 font-mono">
+              +{number.number}
             </p>
-          )}
-          {number.registered_at && (
-            <p className="text-xs text-gray-500">
-              Registered{" "}
-              {formatDistanceToNow(new Date(number.registered_at), {
-                addSuffix: true,
-              })}
-            </p>
+            {number.label && (
+              <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                number.label === 'Premium' 
+                  ? 'bg-orange-100 text-orange-700'
+                  : number.label === 'Standard'
+                    ? 'bg-blue-100 text-blue-700'
+                    : 'bg-gray-100 text-gray-700'
+              }`}>
+                {number.label}
+              </span>
+            )}
+            <div className="flex items-center gap-2 mt-2">
+              <span className="text-sm text-gray-600">
+                Price: <span className="font-semibold">${number.price}</span>
+              </span>
+              {/* <span
+                className={`text-xs px-2 py-1 rounded-full ${
+                  number.is_active
+                    ? "bg-green-100 text-green-700"
+                    : "bg-gray-100 text-gray-600"
+                }`}
+              >
+                {number.is_active ? "Active" : "Inactive"}
+              </span> */}
+            </div>
+            {number.last_synced_at && (
+              <p className="text-xs text-gray-500 mt-1">
+                Synced{" "}
+                {formatDistanceToNow(new Date(number.last_synced_at), {
+                  addSuffix: true,
+                })}
+              </p>
+            )}
+            {number.registered_at && (
+              <p className="text-xs text-gray-500">
+                Registered{" "}
+                {formatDistanceToNow(new Date(number.registered_at), {
+                  addSuffix: true,
+                })}
+              </p>
+            )}
+          </div>
+          {showRegisterButton && (
+            <button
+              onClick={() => handleRegisterClick(number, !canAutoRegister)}
+              disabled={registeringId === number.id}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+            >
+              {isProcessing 
+                ? 'Processing...' 
+                : canAutoRegister 
+                  ? 'Buy' 
+                  : 'Request'}
+            </button>
           )}
         </div>
-        {showRegisterButton && (
-          <button
-            onClick={() => handleRegisterClick(number)}
-            disabled={registeringId === number.id}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
-          >
-            {registeringId === number.id ? "Registering..." : "Register"}
-          </button>
-        )}
       </div>
-    </div>
-  );
+    );
+  };
 
   if (numbersLoading) {
     return (
@@ -165,8 +258,8 @@ export default function NumbersTab({locationId}) {
   }
 
   const currentData = {
-    available: numbers?.available,
-    registered: numbers?.registered,
+    available: numbersData,
+    registered: numbers?.pending,
     owned: numbers?.owned,
   }[activeTab];
 
@@ -187,7 +280,7 @@ export default function NumbersTab({locationId}) {
           >
             Available
             <span className="ml-2 py-0.5 text-xs rounded-full bg-blue-50 text-blue-700">
-              {numbers?.available?.count || 0}
+              {numbersData?.count || 0}
             </span>
           </button>
           <button
@@ -198,9 +291,9 @@ export default function NumbersTab({locationId}) {
                 : "text-gray-600 hover:text-gray-900"
             }`}
           >
-            Registered
+            Requested
             <span className="ml-2 py-0.5 text-xs rounded-full bg-green-50 text-green-700">
-              {numbers?.registered?.count || 0}
+              {numbers?.pending?.count || 0}
             </span>
           </button>
           <button
@@ -221,7 +314,7 @@ export default function NumbersTab({locationId}) {
         {/* Tab Content */}
         <div className="bg-white rounded-lg shadow-sm border p-4">
           {/* Search - only show for available numbers */}
-          {activeTab === "available" && currentData?.results?.length > 0 &&(
+          {activeTab === "available" &&(
             <div className="mb-4">
               <input
                 type="text"
@@ -229,7 +322,7 @@ export default function NumbersTab({locationId}) {
                 value={searchTerm}
                 onChange={(e) => {
                   setSearchTerm(e.target.value);
-                  setMessagesPage(1);
+                  setPage(1);
                 }}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
@@ -237,7 +330,7 @@ export default function NumbersTab({locationId}) {
           )}
 
           {/* Numbers List */}
-          <div className="space-y-3 max-h-96 overflow-y-auto">
+          <div className="space-y-3 overflow-y-auto">
             {currentData?.results?.length > 0 ? (
               currentData.results.map((number) => (
                 <NumberCard
@@ -258,21 +351,21 @@ export default function NumbersTab({locationId}) {
             <div className="flex justify-between items-center pt-6 border-t border-gray-200 mt-4">
               <div className="text-center">
                 <p className="text-sm text-gray-600">
-                  Showing {(messagesPage - 1) * 10 + 1}–
-                  {(messagesPage - 1) * 10 + currentData.results.length} of{" "}
+                  Showing {(Page - 1) * 10 + 1}–
+                  {(Page - 1) * 10 + currentData.results.length} of{" "}
                   {currentData.count}
                 </p>
               </div>
               <div className="flex gap-2">
                 <button
-                  onClick={() => setMessagesPage((p) => Math.max(1, p - 1))}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={!currentData.previous}
                   className="px-4 py-2 text-sm border border-gray-300 rounded-md disabled:opacity-50 hover:bg-gray-50"
                 >
                   Previous
                 </button>
                 <button
-                  onClick={() => setMessagesPage((p) => p + 1)}
+                  onClick={() => setPage((p) => p + 1)}
                   disabled={!currentData.next}
                   className="px-4 py-2 text-sm border border-gray-300 rounded-md disabled:opacity-50 hover:bg-gray-50"
                 >
