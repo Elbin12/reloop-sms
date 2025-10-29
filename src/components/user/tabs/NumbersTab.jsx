@@ -12,6 +12,10 @@ export default function NumbersTab({locationId}) {
   const [activeTab, setActiveTab] = useState("available");
 
   const [searchTerm, setSearchTerm] = useState("");
+  const [labelFilter, setLabelFilter] = useState("");
+  const [priceMin, setPriceMin] = useState("");
+  const [priceMax, setPriceMax] = useState("");
+  const [sortBy, setSortBy] = useState("price_asc");
 
   const [requestingPremiumId, setRequestingPremiumId] = useState(null);
 
@@ -27,6 +31,10 @@ export default function NumbersTab({locationId}) {
     } = useGetAvailableNumbersQuery({ 
       page: Page,
       search: debouncedSearchTerm,
+      label: labelFilter,
+      price_min: priceMin,
+      price_max: priceMax,
+      sort_by: sortBy,
     })
 
   const {
@@ -85,6 +93,10 @@ export default function NumbersTab({locationId}) {
   const handleTabChange = (tab) => {
     setActiveTab(tab);
     setSearchTerm("");
+    setLabelFilter("");
+    setPriceMin("");
+    setPriceMax("");
+    setSortBy("price_asc");
     setPage(1);
   };
 
@@ -312,10 +324,11 @@ export default function NumbersTab({locationId}) {
         </div>
 
         {/* Tab Content */}
-        <div className="bg-white rounded-lg shadow-sm border p-4">
+        <div className="bg-white rounded-lg shadow-sm border p-4 space-y-2">
           {/* Search - only show for available numbers */}
-          {activeTab === "available" &&(
-            <div className="mb-4">
+          {activeTab === "available" && (
+            <div className="flex flex-col gap-3 w-full">
+              {/* Search bar */}
               <input
                 type="text"
                 placeholder="Search available numbers..."
@@ -326,8 +339,60 @@ export default function NumbersTab({locationId}) {
                 }}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
+
+              {/* Filters container */}
+              <div className="flex flex-wrap items-center gap-2 w-full">
+                {/* Min / Max Price */}
+                <input
+                  type="number"
+                  placeholder="Min Price"
+                  value={priceMin}
+                  onChange={(e) => {
+                    setPriceMin(e.target.value);
+                    setPage(1);
+                  }}
+                  className="flex-1 min-w-[130px] px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <input
+                  type="number"
+                  placeholder="Max Price"
+                  value={priceMax}
+                  onChange={(e) => {
+                    setPriceMax(e.target.value);
+                    setPage(1);
+                  }}
+                  className="flex-1 min-w-[130px] px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+
+                {/* Dropdowns */}
+                <select
+                  value={labelFilter}
+                  onChange={(e) => {
+                    setLabelFilter(e.target.value);
+                    setPage(1);
+                  }}
+                  className="flex-1 min-w-[140px] px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                >
+                  <option value="">All Types</option>
+                  <option value="Standard">Standard</option>
+                  <option value="Premium">Premium</option>
+                </select>
+
+                <select
+                  value={sortBy}
+                  onChange={(e) => {
+                    setSortBy(e.target.value);
+                    setPage(1);
+                  }}
+                  className="flex-1 min-w-[160px] px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                >
+                  <option value="price_asc">Price: Low to High</option>
+                  <option value="price_desc">Price: High to Low</option>
+                </select>
+              </div>
             </div>
           )}
+
 
           {/* Numbers List */}
           <div className="space-y-3 overflow-y-auto">

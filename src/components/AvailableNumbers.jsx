@@ -57,7 +57,10 @@ const SummaryCardSkeleton = () => (
 const AvailableNumbers = () => {
   const [searchTerm, setSearchTerm] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
-  const [statusFilter, setStatusFilter] = useState("available")
+  const [labelFilter, setLabelFilter] = useState("");
+  const [priceMin, setPriceMin] = useState("");
+  const [priceMax, setPriceMax] = useState("");
+  const [sortBy, setSortBy] = useState("price_asc");
 
   const debouncedSearchTerm = useDebounce(searchTerm, 500)
 
@@ -70,6 +73,10 @@ const AvailableNumbers = () => {
   } = useGetAvailableNumbersQuery({ 
     page: currentPage,
     search: debouncedSearchTerm,
+    label: labelFilter,
+    price_min: priceMin,
+    price_max: priceMax,
+    sort_by: sortBy,
   })
 
   const availableNumbers = numbersData?.results || []
@@ -167,7 +174,7 @@ const AvailableNumbers = () => {
       <div className="bg-white rounded-xl shadow-sm border border-gray-200">
         {/* Filters */}
         <div className="p-6 border-b border-gray-200">
-          <div className="flex flex-col md:flex-row md:items-center space-y-4 md:space-y-0 md:space-x-4">
+          <div className="flex flex-col gap-3 w-full">
             <div className="flex-1 relative">
               <Search className="w-5 h-5 absolute left-3 top-3 text-gray-400" />
               <input
@@ -179,18 +186,55 @@ const AvailableNumbers = () => {
               />
             </div>
 
-            {/* <select
-              value={statusFilter}
-              onChange={(e) => {
-                setStatusFilter(e.target.value)
-                setCurrentPage(1)
-              }}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="available">Available</option>
-              <option value="registered">Registered</option>
-              <option value="owned">Owned</option>
-            </select> */}
+            <div className="flex flex-wrap items-center gap-2 w-full">
+              {/* Min / Max Price */}
+              <input
+                type="number"
+                placeholder="Min Price"
+                value={priceMin}
+                onChange={(e) => {
+                  setPriceMin(e.target.value);
+                  setPage(1);
+                }}
+                className="flex-1 min-w-[130px] px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <input
+                type="number"
+                placeholder="Max Price"
+                value={priceMax}
+                onChange={(e) => {
+                  setPriceMax(e.target.value);
+                  setPage(1);
+                }}
+                className="flex-1 min-w-[130px] px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+
+              {/* Dropdowns */}
+              <select
+                value={labelFilter}
+                onChange={(e) => {
+                  setLabelFilter(e.target.value);
+                  setPage(1);
+                }}
+                className="flex-1 min-w-[140px] px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              >
+                <option value="">All Types</option>
+                <option value="Standard">Standard</option>
+                <option value="Premium">Premium</option>
+              </select>
+
+              <select
+                value={sortBy}
+                onChange={(e) => {
+                  setSortBy(e.target.value);
+                  setPage(1);
+                }}
+                className="flex-1 min-w-[160px] px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              >
+                <option value="price_asc">Price: Low to High</option>
+                <option value="price_desc">Price: High to Low</option>
+              </select>
+            </div>
           </div>
         </div>
 
