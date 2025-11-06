@@ -196,9 +196,9 @@ export default function NumbersTab({locationId}) {
               </span>
             )}
             <div className="flex items-center gap-2 mt-2">
-              <span className="text-sm text-gray-600">
+              {/* <span className="text-sm text-gray-600">
                 Price: <span className="font-semibold">${number.price}</span>
-              </span>
+              </span> */}
               {/* <span
                 className={`text-xs px-2 py-1 rounded-full ${
                   number.is_active

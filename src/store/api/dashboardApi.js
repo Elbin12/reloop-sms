@@ -45,6 +45,13 @@ export const dashboardApi = createApi({
         data: { ...payload },
       }),
     }),
+    removeNumber: builder.mutation({
+      query: ({ locationId, number }) => ({
+        url: `numbers/remove/${locationId}/`,
+        method: 'DELETE',
+        data: { number: number },
+      }),
+    }),
   }),
 });
 
@@ -54,4 +61,5 @@ export const {
   useGetAvailableNumbersQuery,
   useGetLocationNumbersQuery,
   useBuyPremiumNumbersMutation,
+  useRemoveNumberMutation,
 } = dashboardApi;

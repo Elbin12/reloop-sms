@@ -30,7 +30,7 @@ import {
   useUpdateHighlevelAccountMutation,
 } from '../store/api/highlevelAccountApi';
 
-import { useBuyPremiumNumbersMutation, useGetAvailableNumbersQuery, useGetLocationNumbersQuery } from '../store/api/dashboardApi';
+import { useBuyPremiumNumbersMutation, useGetAvailableNumbersQuery, useGetLocationNumbersQuery, useRemoveNumberMutation } from '../store/api/dashboardApi';
 
 import { BASE_URL } from '../store/axios/axios';
 import { useLocation } from 'react-router-dom';
@@ -518,13 +518,58 @@ const PurchaseConfirmationModal = ({ isOpen, onClose, onConfirm, number, formatP
 
 // Numbers Section Component
 const NumbersSection = ({ locationId, formatPhoneNumber }) => {
-  const { data: numbersData, isLoading, isError } = useGetLocationNumbersQuery(locationId);
+  const { data: numbersData, isFetching:isLoading, isError, refetch } = useGetLocationNumbersQuery(locationId);
   const [buyPremiumNumber, { isLoading: isPurchasing }] = useBuyPremiumNumbersMutation();
+  const [removeNumber, { isLoading: isRemoving }] = useRemoveNumberMutation();
   
   const [modalState, setModalState] = useState({
     isOpen: false,
     selectedNumber: null,
   });
+
+  const [removeModalState, setRemoveModalState] = useState({
+    isOpen: false,
+    selectedNumber: null,
+  });
+
+  const handleRemoveClick = (number) => {
+    setRemoveModalState({
+      isOpen: true,
+      selectedNumber: number,
+    });
+  };
+
+  const handleCloseRemoveModal = () => {
+    if (!isRemoving) {
+      setRemoveModalState({
+        isOpen: false,
+        selectedNumber: null,
+      });
+    }
+  };
+
+  const handleConfirmRemove = async () => {
+    try {
+      await removeNumber({
+        locationId: locationId,
+        number: removeModalState.selectedNumber.number,
+      }).unwrap();
+
+      
+      setRemoveModalState({
+        isOpen: false,
+        selectedNumber: null,
+      });
+      
+      await refetch();
+
+      // Optional: Show success toast
+      // toast.success('Number removed successfully!');
+    } catch (error) {
+      console.error('Failed to remove number:', error);
+      // toast.error(error?.data?.message || 'Failed to remove number');
+    }
+  };
 
   const pendingNumbers = numbersData?.pending?.results || [];
   const ownedNumbers = numbersData?.owned?.results || [];
@@ -563,6 +608,8 @@ const NumbersSection = ({ locationId, formatPhoneNumber }) => {
         isOpen: false,
         selectedNumber: null,
       });
+
+      await refetch();
       
       // Optional: Show success toast/notification
       // toast.success('Premium number purchased successfully!');
@@ -635,6 +682,7 @@ const NumbersSection = ({ locationId, formatPhoneNumber }) => {
             number={number} 
             formatPhoneNumber={formatPhoneNumber}
             onPurchase={handlePurchaseClick}
+            onRemove={handleRemoveClick}
           />
         ))}
       </div>
@@ -648,12 +696,21 @@ const NumbersSection = ({ locationId, formatPhoneNumber }) => {
         formatPhoneNumber={formatPhoneNumber}
         isLoading={isPurchasing}
       />
+
+      <RemoveConfirmationModal
+        isOpen={removeModalState.isOpen}
+        onClose={handleCloseRemoveModal}
+        onConfirm={handleConfirmRemove}
+        number={removeModalState.selectedNumber}
+        formatPhoneNumber={formatPhoneNumber}
+        isLoading={isRemoving}
+      />
     </div>
   );
 };
 
 // Number Card Component
-const NumberCard = ({ number, formatPhoneNumber, onPurchase }) => {
+const NumberCard = ({ number, formatPhoneNumber, onPurchase, onRemove }) => {
   const statusColors = {
     registered: "bg-blue-100 text-blue-800 border-blue-200",
     owned: "bg-purple-100 text-purple-800 border-purple-200",
@@ -662,6 +719,7 @@ const NumberCard = ({ number, formatPhoneNumber, onPurchase }) => {
   };
 
   const isPending = number.status === 'pending';
+  const isOwned = number.status === 'owned';
 
   return (
     <div className={`bg-white border rounded-lg p-3 hover:shadow-md transition-shadow ${
@@ -715,6 +773,20 @@ const NumberCard = ({ number, formatPhoneNumber, onPurchase }) => {
             </button>
           </div>
         )}
+
+        {isOwned && (
+          <div className="pt-2 mt-2 border-t border-gray-100">
+            <button
+              onClick={() => onRemove(number)}
+              className="w-full px-3 py-2 bg-red-50 text-red-600 rounded-md hover:bg-red-100 
+                       transition-colors text-xs font-medium flex items-center justify-center space-x-1.5
+                       border border-red-200"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Remove Number</span>
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -750,5 +822,88 @@ const InputField = ({ label, value, onChange }) => (
     />
   </div>
 );
+
+const RemoveConfirmationModal = ({ isOpen, onClose, onConfirm, number, formatPhoneNumber, isLoading }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg max-w-md w-full shadow-xl">
+        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+          <div className="flex items-center space-x-3">
+            <div className="flex-shrink-0 w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+              <Trash2 className="w-5 h-5 text-red-600" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900">
+              Remove Number
+            </h3>
+          </div>
+          <button
+            onClick={onClose}
+            disabled={isLoading}
+            className="text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="p-6">
+          <p className="text-sm text-gray-600 mb-4">
+            Are you sure you want to remove the following number?
+          </p>
+
+          <div className="bg-gray-50 rounded-lg p-4 mb-4 border border-gray-200">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-gray-600">Phone Number</span>
+              <span className="text-base font-semibold text-gray-900">
+                {formatPhoneNumber(number.number)}
+              </span>
+            </div>
+          </div>
+
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-6">
+            <p className="text-xs text-red-800 leading-relaxed">
+              <strong className="font-semibold">⚠️ Warning:</strong> This action cannot be undone. 
+              The number will be permanently removed from your account.
+            </p>
+          </div>
+
+          <div className="flex space-x-3">
+            <button
+              onClick={onClose}
+              disabled={isLoading}
+              className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 
+                       transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={onConfirm}
+              disabled={isLoading}
+              className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 
+                       transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed
+                       flex items-center justify-center"
+            >
+              {isLoading ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  Removing...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-4 h-4 mr-1.5" />
+                  Confirm Remove
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export default HighLevelAccounts;
