@@ -11,6 +11,7 @@ import {
 import MessagesTab from "./tabs/MessagesTab";
 import TransactionsTab from "./tabs/TransactionsTab";
 import NumbersTab from "./tabs/NumbersTab";
+import { MessageSquare, X, Phone, Calendar } from "lucide-react";
 
 export default function UserDashboard() {
   const [searchParams] = useSearchParams();
@@ -18,6 +19,7 @@ export default function UserDashboard() {
 
   const [tabValue, setTabValue] = useState("overview");
   const [visitedTabs, setVisitedTabs] = useState(["overview"]);
+  const [selectedMessage, setSelectedMessage] = useState(null);
 
   // API queries
   const { data: dashboard, isLoading: dashboardLoading } =
@@ -289,7 +291,7 @@ export default function UserDashboard() {
             <div className="space-y-6">
               {/* Recent Messages */}
               <div className="bg-white rounded-lg shadow-sm p-2 sm:p-4 border">
-                <h3 className="font-semibold text-sm sm:text-lg mb-4">
+                <h3 className="font-semibold text-base sm:text-lg md:text-xl lg:text-2xl mb-4 text-gray-900">
                   Recent Messages
                 </h3>
                 <div className="space-y-3">
@@ -302,11 +304,22 @@ export default function UserDashboard() {
                       >
                         <div className="flex justify-between items-start mb-2">
                           <div className="flex-1">
-                            <p className="text-sm sm:text-lg font-medium text-gray-900">
-                              {message.message_content}
+                            <p 
+                              className="text-sm sm:text-base md:text-lg font-medium text-gray-900 cursor-pointer hover:text-blue-600 transition-colors leading-relaxed"
+                              onClick={() => setSelectedMessage(message)}
+                              title="Click to view full message"
+                            >
+                              {message.message_content.length > 120 
+                                ? (
+                                    <>
+                                      {message.message_content.substring(0, 120)}
+                                      <span className="text-blue-600 font-normal text-xs sm:text-sm">... (click to view full message)</span>
+                                    </>
+                                  )
+                                : message.message_content}
                             </p>
                             <div className="flex items-center gap-2 mt-1">
-                              <span className="text-xs sm:text-sm text-gray-600">
+                              <span className="text-xs sm:text-sm md:text-base text-gray-600">
                                 {message.direction === "outbound"
                                   ? "To"
                                   : "From"}
@@ -318,10 +331,10 @@ export default function UserDashboard() {
                             </div>
                           </div>
                           <div className="text-right ml-4">
-                            <p className="text-lg sm:text-xl font-medium">
+                            <p className="text-base sm:text-lg md:text-xl font-medium text-gray-900">
                               ${message.cost}
                             </p>
-                            <p className="text-[0.7rem] sm:text-xs text-gray-500">
+                            <p className="text-xs sm:text-sm text-gray-500">
                               {message.segments} segment
                               {message.segments !== 1 ? "s" : ""}
                             </p>
@@ -330,21 +343,21 @@ export default function UserDashboard() {
                         <div className="flex justify-between items-center">
                           <div className="flex gap-2">
                             <span
-                              className={`text-[0.7rem] sm:text-xs px-2 py-1 rounded-full border ${getStatusColor(
+                              className={`text-xs sm:text-sm px-2 py-0.5 sm:py-1 rounded-full border ${getStatusColor(
                                 message.status
                               )}`}
                             >
                               {message.status}
                             </span>
                             <span
-                              className={`text-[0.7rem] sm:text-xs px-2 py-1 rounded-full border ${getDirectionColor(
+                              className={`text-xs sm:text-sm px-2 py-0.5 sm:py-1 rounded-full border ${getDirectionColor(
                                 message.direction
                               )}`}
                             >
                               {message.direction}
                             </span>
                           </div>
-                          <span className="text-[0.7rem] sm:text-xs text-gray-500">
+                          <span className="text-xs sm:text-sm text-gray-500">
                             {formatDistanceToNow(new Date(message.created_at), {
                               addSuffix: true,
                             })}
@@ -438,6 +451,168 @@ export default function UserDashboard() {
 
         </div>
       </div>
+
+      {/* Message Detail Modal */}
+      {selectedMessage && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={() => setSelectedMessage(null)}
+        >
+          <div 
+            className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="px-4 sm:px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gray-50">
+              <div className="flex items-center space-x-3">
+                <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-blue-600" />
+                <h2 className="text-base sm:text-lg md:text-xl lg:text-2xl font-semibold text-gray-900">Message Details</h2>
+              </div>
+              <button
+                onClick={() => setSelectedMessage(null)}
+                className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
+                aria-label="Close modal"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="px-4 sm:px-6 py-4 sm:py-6 overflow-y-auto flex-1">
+              <div className="space-y-4 sm:space-y-6">
+                {/* Status and Direction */}
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center space-x-2">
+                    <span
+                      className={`px-2 py-1 rounded-full border capitalize text-xs sm:text-sm md:text-base ${getStatusColor(selectedMessage.status)}`}
+                    >
+                      {selectedMessage.status}
+                    </span>
+                    <span
+                      className={`px-2 py-1 rounded-full border capitalize text-xs sm:text-sm md:text-base ${getDirectionColor(selectedMessage.direction)}`}
+                    >
+                      {selectedMessage.direction}
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-semibold text-base sm:text-lg md:text-xl text-gray-900">
+                      ${selectedMessage.cost}
+                    </p>
+                    <p className="text-xs sm:text-sm md:text-base text-gray-500">
+                      {selectedMessage.segments} segment{selectedMessage.segments !== 1 ? 's' : ''}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Phone Numbers */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="bg-gray-50 rounded-lg p-3 sm:p-4">
+                    <div className="flex items-center space-x-2 text-xs sm:text-sm md:text-base text-gray-600 mb-1">
+                      <Phone className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5" />
+                      <span>{selectedMessage.direction === "outbound" ? "To" : "From"}</span>
+                    </div>
+                    <p className="text-sm sm:text-base md:text-lg font-medium text-gray-900">
+                      {selectedMessage.direction === "outbound"
+                        ? selectedMessage.to_number
+                        : selectedMessage.from_number}
+                    </p>
+                  </div>
+                  {selectedMessage.direction === "outbound" && selectedMessage.from_number && (
+                    <div className="bg-gray-50 rounded-lg p-3 sm:p-4">
+                      <div className="flex items-center space-x-2 text-xs sm:text-sm md:text-base text-gray-600 mb-1">
+                        <Phone className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5" />
+                        <span>From</span>
+                      </div>
+                      <p className="text-sm sm:text-base md:text-lg font-medium text-gray-900">
+                        {selectedMessage.from_number}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Message Content */}
+                <div>
+                  <div className="flex items-center space-x-2 text-xs sm:text-sm md:text-base text-gray-600 mb-2">
+                    <MessageSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5" />
+                    <span>Message Content</span>
+                  </div>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4">
+                    <p className="text-sm sm:text-base md:text-lg text-gray-900 whitespace-pre-wrap break-words leading-relaxed">
+                      {selectedMessage.message_content}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Timestamps */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <div className="flex items-center space-x-2 text-xs sm:text-sm md:text-base text-gray-600 mb-2">
+                      <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5" />
+                      <span>Created</span>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-3 sm:p-4">
+                      <p className="text-xs sm:text-sm md:text-base text-gray-900">
+                        {formatDistanceToNow(new Date(selectedMessage.created_at), {
+                          addSuffix: true,
+                        })}
+                      </p>
+                      <p className="text-xs sm:text-sm text-gray-500 mt-1">
+                        {new Date(selectedMessage.created_at).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                  {selectedMessage.sent_at && (
+                    <div>
+                      <div className="flex items-center space-x-2 text-xs sm:text-sm md:text-base text-gray-600 mb-2">
+                        <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5" />
+                        <span>Sent</span>
+                      </div>
+                      <div className="bg-gray-50 rounded-lg p-3 sm:p-4">
+                        <p className="text-xs sm:text-sm md:text-base text-gray-900">
+                          {formatDistanceToNow(new Date(selectedMessage.sent_at), {
+                            addSuffix: true,
+                          })}
+                        </p>
+                        <p className="text-xs sm:text-sm text-gray-500 mt-1">
+                          {new Date(selectedMessage.sent_at).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  {selectedMessage.delivered_at && (
+                    <div>
+                      <div className="flex items-center space-x-2 text-xs sm:text-sm md:text-base text-gray-600 mb-2">
+                        <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5" />
+                        <span>Delivered</span>
+                      </div>
+                      <div className="bg-gray-50 rounded-lg p-3 sm:p-4">
+                        <p className="text-xs sm:text-sm md:text-base text-gray-900">
+                          {formatDistanceToNow(new Date(selectedMessage.delivered_at), {
+                            addSuffix: true,
+                          })}
+                        </p>
+                        <p className="text-xs sm:text-sm text-gray-500 mt-1">
+                          {new Date(selectedMessage.delivered_at).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-4 sm:px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end">
+              <button
+                onClick={() => setSelectedMessage(null)}
+                className="px-4 py-2 sm:px-5 sm:py-2.5 md:px-6 md:py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-xs sm:text-sm md:text-base"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

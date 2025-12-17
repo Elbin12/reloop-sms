@@ -13,7 +13,8 @@ import {
   ArrowUpDown,
   Calendar,
   User,
-  MessageCircle
+  MessageCircle,
+  X
 } from 'lucide-react';
 import { useGetMessagesApiQuery } from '../store/api/messagesApi';
 
@@ -25,6 +26,7 @@ const SMSMonitoring = () => {
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [pagination, setPagination] = useState({ page: 1, page_size: 10 });
+  const [selectedMessage, setSelectedMessage] = useState(null);
 
   // Debounce search term to avoid too many API calls
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
@@ -251,6 +253,7 @@ const SMSMonitoring = () => {
                 <option value="all">All Status</option>
                 <option value="delivered">Delivered</option>
                 <option value="sent">Sent</option>
+                <option value="queued">Queued</option>
                 <option value="pending">Pending</option>
                 <option value="failed">Failed</option>
               </select>
@@ -397,7 +400,7 @@ const SMSMonitoring = () => {
                         <ArrowUpDown className="w-3 h-3" />
                       </div>
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Account</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       <div className="flex items-center space-x-1">
                         <span>Created At</span>
@@ -409,7 +412,6 @@ const SMSMonitoring = () => {
                         <ArrowUpDown className="w-3 h-3" />
                       </div>
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Message IDs</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -447,7 +449,11 @@ const SMSMonitoring = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="text-sm text-gray-900 max-w-xs truncate">
+                        <div 
+                          className="text-sm text-gray-900 max-w-xs truncate cursor-pointer hover:text-blue-600 transition-colors"
+                          onClick={() => setSelectedMessage(message)}
+                          title="Click to view full message"
+                        >
                           {message.message_content}
                         </div>
                       </td>
@@ -459,8 +465,11 @@ const SMSMonitoring = () => {
                           </span>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {message.ghl_account?.location_name}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm">
+                          <div className="font-medium text-gray-900">{message.location_name || 'N/A'}</div>
+                          <div className="text-gray-500">ID: {message.location_id || 'N/A'}</div>
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {new Date(message.created_at).toLocaleString()}
@@ -468,12 +477,7 @@ const SMSMonitoring = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {new Date(message.sent_at).toLocaleString()}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-xs">
-                          <div className="text-gray-900 font-mono">{message.ghl_message_id}</div>
-                          <div className="text-gray-500 font-mono mt-1">{message.transmit_message_id}</div>
-                        </div>
-                      </td>
+                      
                     </tr>
                   ))}
                   {messages.length === 0 && !isLoading && (
@@ -531,6 +535,177 @@ const SMSMonitoring = () => {
           </>
         )}
       </div>
+
+      {/* Message Detail Modal */}
+      {selectedMessage && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={() => setSelectedMessage(null)}
+        >
+          <div 
+            className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gray-50">
+              <div className="flex items-center space-x-3">
+                <MessageSquare className="w-5 h-5 text-blue-600" />
+                <h2 className="text-xl font-semibold text-gray-900">Message Details</h2>
+              </div>
+              <button
+                onClick={() => setSelectedMessage(null)}
+                className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
+                aria-label="Close modal"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="px-6 py-6 overflow-y-auto flex-1">
+              <div className="space-y-6">
+                {/* Direction and Status */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    {selectedMessage.direction === 'outbound' ? (
+                      <div className="flex items-center space-x-2 text-blue-600">
+                        <div className="w-4 h-4 rounded-full bg-blue-100 flex items-center justify-center">
+                          <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
+                        </div>
+                        <span className="text-sm font-medium">Outbound</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center space-x-2 text-green-600">
+                        <div className="w-4 h-4 rounded-full bg-green-100 flex items-center justify-center">
+                          <div className="w-2 h-2 bg-green-600 rounded-full"></div>
+                        </div>
+                        <span className="text-sm font-medium">Inbound</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    {getStatusIcon(selectedMessage.status)}
+                    <span className={getStatusBadge(selectedMessage.status)}>
+                      {selectedMessage.status?.charAt(0).toUpperCase() + selectedMessage.status?.slice(1)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Phone Numbers */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="flex items-center space-x-2 text-sm text-gray-600 mb-1">
+                      <Phone className="w-4 h-4" />
+                      <span>From</span>
+                    </div>
+                    <p className="text-base font-medium text-gray-900">{selectedMessage.from_number}</p>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="flex items-center space-x-2 text-sm text-gray-600 mb-1">
+                      <Phone className="w-4 h-4" />
+                      <span>To</span>
+                    </div>
+                    <p className="text-base font-medium text-gray-900">{selectedMessage.to_number}</p>
+                  </div>
+                </div>
+
+                {/* Message Content */}
+                <div>
+                  <div className="flex items-center space-x-2 text-sm text-gray-600 mb-2">
+                    <MessageCircle className="w-4 h-4" />
+                    <span>Message Content</span>
+                  </div>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <p className="text-base text-gray-900 whitespace-pre-wrap break-words">
+                      {selectedMessage.message_content}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Location Information */}
+                {selectedMessage.ghl_account && (
+                  <div>
+                    <div className="flex items-center space-x-2 text-sm text-gray-600 mb-2">
+                      <User className="w-4 h-4" />
+                      <span>Location</span>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <p className="text-base font-medium text-gray-900">
+                        {selectedMessage.ghl_account.location_name || 'N/A'}
+                      </p>
+                      <p className="text-sm text-gray-500 mt-1">
+                        ID: {selectedMessage.ghl_account.location_id || 'N/A'}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Timestamps */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <div className="flex items-center space-x-2 text-sm text-gray-600 mb-2">
+                      <Calendar className="w-4 h-4" />
+                      <span>Created At</span>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <p className="text-sm text-gray-900">
+                        {new Date(selectedMessage.created_at).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="flex items-center space-x-2 text-sm text-gray-600 mb-2">
+                      <Calendar className="w-4 h-4" />
+                      <span>Sent At</span>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <p className="text-sm text-gray-900">
+                        {new Date(selectedMessage.sent_at).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Message IDs */}
+                <div>
+                  <div className="flex items-center space-x-2 text-sm text-gray-600 mb-2">
+                    <MessageSquare className="w-4 h-4" />
+                    <span>Message IDs</span>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                    {selectedMessage.ghl_message_id && (
+                      <div>
+                        <span className="text-xs text-gray-500">HighLevel Message ID:</span>
+                        <p className="text-sm font-mono text-gray-900 mt-1 break-all">
+                          {selectedMessage.ghl_message_id}
+                        </p>
+                      </div>
+                    )}
+                    {selectedMessage.transmit_message_id && (
+                      <div>
+                        <span className="text-xs text-gray-500">Transmit Message ID:</span>
+                        <p className="text-sm font-mono text-gray-900 mt-1 break-all">
+                          {selectedMessage.transmit_message_id}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end">
+              <button
+                onClick={() => setSelectedMessage(null)}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

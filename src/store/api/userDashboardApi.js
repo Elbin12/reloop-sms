@@ -52,6 +52,16 @@ export const dashboardAPi = createApi({
       }),
       invalidatesTags: ['Numbers'],
     }),
+    sendQueuedMessages: builder.mutation({
+      query: ({ message_ids, location_id }) => ({
+        url: `messages/send-queued/`,
+        method: "POST",
+        data: {
+          message_ids,
+          ...(location_id && { location_id })
+        }
+      }),
+    }),
   }),
 })
 
@@ -61,5 +71,6 @@ export const {
   useGetTransactionsQuery,
   useGetNumbersQuery,
   useRegisterNumberMutation,
-  useRequestPremiumNumberMutation
+  useRequestPremiumNumberMutation,
+  useSendQueuedMessagesMutation
 } = dashboardAPi;
