@@ -19,8 +19,8 @@ import {
 } from 'lucide-react';
 import { useGetMessagesApiQuery, useRetrySmsMessageMutation } from '../store/api/messagesApi';
 
-/** Statuses where the backend accepts a delivery retry (queued is treated as not yet finalized). */
-const RETRYABLE_STATUSES = new Set(['failed', 'pending', 'queued']);
+/** Statuses where the backend accepts a delivery retry. */
+const RETRYABLE_STATUSES = new Set(['failed', 'pending']);
 
 const isRetryableMessage = (message) => {
   if (!message?.id || !message?.location_id) return false;
