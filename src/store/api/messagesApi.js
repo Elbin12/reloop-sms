@@ -1,5 +1,5 @@
 import { createApi } from '@reduxjs/toolkit/query/react';
-import { axiosBaseQuery, BASE_URL } from '../axios/axios';
+import { axiosBaseQuery, axiosInstance, BASE_URL } from '../axios/axios';
 
 export const messagesApi = createApi({
   reducerPath: 'messagesApi',
@@ -41,10 +41,38 @@ export const messagesApi = createApi({
           params
         };
       },
-    })
+      providesTags: (result) =>
+        result?.results?.length
+          ? [
+              ...result.results.map(({ id }) => ({ type: 'messagesApi', id })),
+              { type: 'messagesApi', id: 'LIST' },
+            ]
+          : [{ type: 'messagesApi', id: 'LIST' }],
+    }),
+    retrySmsMessage: builder.mutation({
+      async queryFn({ id, location_id }) {
+        try {
+          const { data } = await axiosInstance.post(`sms/messages/${id}/retry/`, {
+            id,
+            location_id,
+          });
+          return { data };
+        } catch (axiosError) {
+          return {
+            error: {
+              status: axiosError.response?.status,
+              data: axiosError.response?.data || axiosError.message,
+            },
+          };
+        }
+      },
+      invalidatesTags: (_result, error, { id }) =>
+        error ? [] : [{ type: 'messagesApi', id: 'LIST' }, { type: 'messagesApi', id }],
+    }),
   }),
 });
 
 export const {
   useGetMessagesApiQuery,
+  useRetrySmsMessageMutation,
 } = messagesApi;

@@ -14,9 +14,32 @@ import {
   Calendar,
   User,
   MessageCircle,
-  X
+  X,
+  Loader2
 } from 'lucide-react';
-import { useGetMessagesApiQuery } from '../store/api/messagesApi';
+import { useGetMessagesApiQuery, useRetrySmsMessageMutation } from '../store/api/messagesApi';
+
+/** Statuses where the backend accepts a delivery retry (queued is treated as not yet finalized). */
+const RETRYABLE_STATUSES = new Set(['failed', 'pending', 'queued']);
+
+const isRetryableMessage = (message) => {
+  if (!message?.id || !message?.location_id) return false;
+  return RETRYABLE_STATUSES.has(String(message.status || '').toLowerCase());
+};
+
+const formatRetryError = (err) => {
+  const d = err?.data;
+  if (!d) return 'Could not retry this message. Please try again.';
+  if (typeof d === 'string') return d;
+  if (Array.isArray(d.detail)) {
+    return d.detail
+      .map((x) => (typeof x === 'string' ? x : x?.message || JSON.stringify(x)))
+      .join(' ');
+  }
+  if (d.detail != null) return String(d.detail);
+  if (d.message != null) return String(d.message);
+  return 'Could not retry this message. Please try again.';
+};
 
 const SMSMonitoring = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -27,6 +50,10 @@ const SMSMonitoring = () => {
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [pagination, setPagination] = useState({ page: 1, page_size: 10 });
   const [selectedMessage, setSelectedMessage] = useState(null);
+  const [retryingMessageId, setRetryingMessageId] = useState(null);
+  const [retryNotice, setRetryNotice] = useState(null);
+
+  const [retrySmsMessage] = useRetrySmsMessageMutation();
 
   // Debounce search term to avoid too many API calls
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
@@ -96,6 +123,7 @@ const SMSMonitoring = () => {
         return <CheckCircle className="w-4 h-4 text-green-500" />;
       case 'sent':
       case 'pending':
+      case 'queued':
         return <Clock className="w-4 h-4 text-amber-500" />;
       case 'failed':
         return <XCircle className="w-4 h-4 text-red-500" />;
@@ -111,6 +139,7 @@ const SMSMonitoring = () => {
         return `${baseClasses} bg-green-100 text-green-800`;
       case 'sent':
       case 'pending':
+      case 'queued':
         return `${baseClasses} bg-amber-100 text-amber-800`;
       case 'failed':
         return `${baseClasses} bg-red-100 text-red-800`;
@@ -118,6 +147,29 @@ const SMSMonitoring = () => {
         return `${baseClasses} bg-gray-100 text-gray-800`;
     }
   };
+
+  const handleRetryMessage = useCallback(
+    async (message, { closeModalOnSuccess } = {}) => {
+      if (!isRetryableMessage(message)) return;
+      setRetryNotice(null);
+      setRetryingMessageId(message.id);
+      try {
+        await retrySmsMessage({ id: message.id, location_id: message.location_id }).unwrap();
+        setRetryNotice({
+          type: 'success',
+          text: 'Retry was submitted successfully. Status will update when the provider processes the message.',
+        });
+        if (closeModalOnSuccess) {
+          setSelectedMessage(null);
+        }
+      } catch (e) {
+        setRetryNotice({ type: 'error', text: formatRetryError(e) });
+      } finally {
+        setRetryingMessageId(null);
+      }
+    },
+    [retrySmsMessage]
+  );
 
   const getPageFromUrl = (url) => {
     if (!url) return null;
@@ -382,6 +434,26 @@ const SMSMonitoring = () => {
           <div className="p-6 text-center text-gray-500">Loading messages...</div>
         ) : (
           <>
+            {retryNotice && (
+              <div
+                className={`mx-6 mt-4 mb-2 flex items-start justify-between gap-3 rounded-lg border px-4 py-3 text-sm ${
+                  retryNotice.type === 'success'
+                    ? 'border-green-200 bg-green-50 text-green-900'
+                    : 'border-red-200 bg-red-50 text-red-900'
+                }`}
+                role="status"
+              >
+                <span>{retryNotice.text}</span>
+                <button
+                  type="button"
+                  onClick={() => setRetryNotice(null)}
+                  className="shrink-0 rounded p-0.5 hover:bg-black/5 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-gray-400"
+                  aria-label="Dismiss notification"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            )}
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gray-50">
@@ -411,6 +483,9 @@ const SMSMonitoring = () => {
                         <span>Sent At</span>
                         <ArrowUpDown className="w-3 h-3" />
                       </div>
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
                     </th>
                   </tr>
                 </thead>
@@ -477,12 +552,31 @@ const SMSMonitoring = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {new Date(message.sent_at).toLocaleString()}
                       </td>
-                      
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                        {isRetryableMessage(message) ? (
+                          <button
+                            type="button"
+                            onClick={() => handleRetryMessage(message)}
+                            disabled={retryingMessageId === message.id}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
+                            title="Request another delivery attempt for this message"
+                          >
+                            {retryingMessageId === message.id ? (
+                              <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
+                            ) : (
+                              <RefreshCw className="h-4 w-4 shrink-0" aria-hidden />
+                            )}
+                            Retry
+                          </button>
+                        ) : (
+                          <span className="text-sm text-gray-300">—</span>
+                        )}
+                      </td>
                     </tr>
                   ))}
                   {messages.length === 0 && !isLoading && (
                     <tr>
-                      <td colSpan="7" className="px-6 py-4 text-center text-gray-500">
+                      <td colSpan="8" className="px-6 py-4 text-center text-gray-500">
                         {hasActiveFilters ? 'No messages match your filters.' : 'No messages found.'}
                       </td>
                     </tr>
@@ -695,8 +789,26 @@ const SMSMonitoring = () => {
             </div>
 
             {/* Modal Footer */}
-            <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end">
+            <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex flex-wrap items-center justify-between gap-3">
+              {isRetryableMessage(selectedMessage) ? (
+                <button
+                  type="button"
+                  onClick={() => handleRetryMessage(selectedMessage, { closeModalOnSuccess: true })}
+                  disabled={retryingMessageId === selectedMessage.id}
+                  className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-800 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {retryingMessageId === selectedMessage.id ? (
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                  ) : (
+                    <RefreshCw className="h-4 w-4" aria-hidden />
+                  )}
+                  Retry delivery
+                </button>
+              ) : (
+                <span />
+              )}
               <button
+                type="button"
                 onClick={() => setSelectedMessage(null)}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
               >
