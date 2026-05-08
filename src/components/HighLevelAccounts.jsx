@@ -79,6 +79,7 @@ const HighLevelAccounts = () => {
   const [editingAccount, setEditingAccount] = useState(null);
   const [newAccount, setNewAccount] = useState({
     location_name: '',
+    ghl_contact_id:'',
     inbound_segment_charge:'',
     outbound_segment_charge: '',
     max_premium_numbers: '',
@@ -136,6 +137,7 @@ const HighLevelAccounts = () => {
     setEditingAccount(account);
     setNewAccount({
       location_name: account.location_name,
+      ghl_contact_id: account?.ghl_contact_id,
       inbound_segment_charge: account?.wallet?.inbound_segment_charge,
       outbound_segment_charge: account?.wallet?.outbound_segment_charge,
       max_premium_numbers: account?.max_premium_numbers,
@@ -150,6 +152,7 @@ const HighLevelAccounts = () => {
       await updateAccount({ 
         id: editingAccount.id, 
         location_name: newAccount.location_name,
+        ghl_contact_id: newAccount.ghl_contact_id,
         wallet: {
           inbound_segment_charge: newAccount?.inbound_segment_charge, 
           outbound_segment_charge: newAccount?.outbound_segment_charge,
@@ -366,6 +369,11 @@ const HighLevelAccounts = () => {
                 label="Location Name"
                 value={newAccount.location_name}
                 onChange={(e) => setNewAccount({ ...newAccount, location_name: e.target.value })}
+              />
+              <InputField
+                label="GHL Contact ID"
+                value={newAccount.ghl_contact_id}
+                onChange={(e) => setNewAccount({ ...newAccount, ghl_contact_id: e.target.value })}
               />
               <InputField
                 label="Inbound Charge"
