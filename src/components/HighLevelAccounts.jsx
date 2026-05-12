@@ -73,13 +73,32 @@ const Toast = ({ message, onClose }) => (
   </div>
 );
 
+const getErrorMessage = (err, fallbackMessage) => {
+  const data = err?.data;
+
+  if (typeof data === 'string') return data;
+  if (data?.error) return data.error;
+  if (data?.message) return data.message;
+  if (data?.detail) return data.detail;
+
+  if (data && typeof data === 'object') {
+    const firstError = Object.values(data).find(Boolean);
+
+    if (Array.isArray(firstError)) return firstError.join(' ');
+    if (typeof firstError === 'string') return firstError;
+  }
+
+  return fallbackMessage;
+};
+
 const HighLevelAccounts = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingAccount, setEditingAccount] = useState(null);
+  const [editError, setEditError] = useState('');
   const [newAccount, setNewAccount] = useState({
     location_name: '',
-    ghl_contact_id:'',
+    ghl_contact_email:'',
     inbound_segment_charge:'',
     outbound_segment_charge: '',
     max_premium_numbers: '',
@@ -117,7 +136,7 @@ const HighLevelAccounts = () => {
   const totalPages = Math.ceil(totalCount / pageSize);
 
   const [deleteAccount] = useDeleteHighlevelAccountMutation();
-  const [updateAccount] = useUpdateHighlevelAccountMutation();
+  const [updateAccount, { isLoading: isUpdatingAccount }] = useUpdateHighlevelAccountMutation();
 
   const handleOnboard = () => {
     window.location.href = `${BASE_URL}/core/auth/connect/`;
@@ -135,35 +154,44 @@ const HighLevelAccounts = () => {
 
   const handleEditAccount = (account) => {
     setEditingAccount(account);
+    setEditError('');
     setNewAccount({
-      location_name: account.location_name,
-      ghl_contact_id: account?.ghl_contact_id,
-      inbound_segment_charge: account?.wallet?.inbound_segment_charge,
-      outbound_segment_charge: account?.wallet?.outbound_segment_charge,
-      max_premium_numbers: account?.max_premium_numbers,
-      max_standard_numbers: account?.max_standard_numbers,
+      location_name: account.location_name ?? '',
+      ghl_contact_email: account?.ghl_contact_email ?? '',
+      inbound_segment_charge: account?.wallet?.inbound_segment_charge ?? '',
+      outbound_segment_charge: account?.wallet?.outbound_segment_charge ?? '',
+      max_premium_numbers: account?.max_premium_numbers ?? '',
+      max_standard_numbers: account?.max_standard_numbers ?? '',
     });
     setShowEditModal(true);
   };
 
+  const handleCloseEditModal = () => {
+    setShowEditModal(false);
+    setEditingAccount(null);
+    setEditError('');
+  };
+
   const handleUpdateAccount = async () => {
     if (!editingAccount) return;
+    setEditError('');
+
     try {
       await updateAccount({ 
         id: editingAccount.id, 
         location_name: newAccount.location_name,
-        ghl_contact_id: newAccount.ghl_contact_id,
+        ghl_contact_email: newAccount.ghl_contact_email,
         wallet: {
           inbound_segment_charge: newAccount?.inbound_segment_charge, 
           outbound_segment_charge: newAccount?.outbound_segment_charge,
         },
         max_premium_numbers: newAccount?.max_premium_numbers,
         max_standard_numbers: newAccount?.max_standard_numbers,
-      });
-      setShowEditModal(false);
-      setEditingAccount(null);
+      }).unwrap();
+      handleCloseEditModal();
     } catch (err) {
       console.error('Failed to update account:', err);
+      setEditError(getErrorMessage(err, 'Failed to update HighLevel account.'));
     }
   };
 
@@ -360,55 +388,80 @@ const HighLevelAccounts = () => {
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
               <h3 className="text-lg font-semibold text-gray-900">Edit HighLevel Account</h3>
-              <button onClick={() => setShowEditModal(false)} className="text-gray-400 hover:text-gray-600">
+              <button onClick={handleCloseEditModal} className="text-gray-400 hover:text-gray-600">
                 <X className="w-5 h-5" />
               </button>
             </div>
             <div className="p-6 space-y-4">
+              {editError && (
+                <div className="flex items-start space-x-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                  <span>{editError}</span>
+                </div>
+              )}
               <InputField
                 label="Location Name"
                 value={newAccount.location_name}
-                onChange={(e) => setNewAccount({ ...newAccount, location_name: e.target.value })}
+                onChange={(e) => {
+                  setEditError('');
+                  setNewAccount({ ...newAccount, location_name: e.target.value });
+                }}
               />
               <InputField
-                label="GHL Contact ID"
-                value={newAccount.ghl_contact_id}
-                onChange={(e) => setNewAccount({ ...newAccount, ghl_contact_id: e.target.value })}
+                label="GHL Contact Email"
+                value={newAccount.ghl_contact_email}
+                onChange={(e) => {
+                  setEditError('');
+                  setNewAccount({ ...newAccount, ghl_contact_email: e.target.value });
+                }}
               />
               <InputField
                 label="Inbound Charge"
                 value={newAccount.inbound_segment_charge}
-                onChange={(e) => setNewAccount({ ...newAccount, inbound_segment_charge: e.target.value })}
+                onChange={(e) => {
+                  setEditError('');
+                  setNewAccount({ ...newAccount, inbound_segment_charge: e.target.value });
+                }}
               />
               <InputField
                 label="Outbound Charge"
                 value={newAccount.outbound_segment_charge}
-                onChange={(e) => setNewAccount({ ...newAccount, outbound_segment_charge: e.target.value })}
+                onChange={(e) => {
+                  setEditError('');
+                  setNewAccount({ ...newAccount, outbound_segment_charge: e.target.value });
+                }}
               />
               <InputField
                 label="Maximum standard number can buy"
                 value={newAccount.max_standard_numbers}
-                onChange={(e) => setNewAccount({ ...newAccount, max_standard_numbers: e.target.value })}
+                onChange={(e) => {
+                  setEditError('');
+                  setNewAccount({ ...newAccount, max_standard_numbers: e.target.value });
+                }}
               />
               <InputField
                 label="Maximum premium number can buy"
                 value={newAccount.max_premium_numbers}
-                onChange={(e) => setNewAccount({ ...newAccount, max_premium_numbers: e.target.value })}
+                onChange={(e) => {
+                  setEditError('');
+                  setNewAccount({ ...newAccount, max_premium_numbers: e.target.value });
+                }}
               />
             </div>
             <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200">
               <button
-                onClick={() => setShowEditModal(false)}
-                className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
+                onClick={handleCloseEditModal}
+                disabled={isUpdatingAccount}
+                className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 onClick={handleUpdateAccount}
-                disabled={!newAccount.location_name}
+                disabled={!newAccount.location_name || isUpdatingAccount}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300"
               >
-                Update
+                {isUpdatingAccount ? 'Updating...' : 'Update'}
               </button>
             </div>
           </div>
