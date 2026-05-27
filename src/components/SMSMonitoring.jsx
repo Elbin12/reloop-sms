@@ -45,7 +45,7 @@ const SMSMonitoring = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [directionFilter, setDirectionFilter] = useState('all');
-  const [sortBy, setSortBy] = useState('-sent_at');
+  const [sortBy, setSortBy] = useState('-created_at');
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [pagination, setPagination] = useState({ page: 1, page_size: 10 });
@@ -209,12 +209,12 @@ const SMSMonitoring = () => {
     setSearchTerm('');
     setStatusFilter('all');
     setDirectionFilter('all');
-    setSortBy('-sent_at');
+    setSortBy('-created_at');
     setDateRange({ start: '', end: '' });
   }, []);
 
   const hasActiveFilters = searchTerm || statusFilter !== 'all' || directionFilter !== 'all' || 
-                          dateRange.start || dateRange.end || sortBy !== '-sent_at';
+                          dateRange.start || dateRange.end || sortBy !== '-created_at';
 
   return (
     <div className="space-y-6">
@@ -325,10 +325,10 @@ const SMSMonitoring = () => {
                 onChange={handleSortChange}
                 className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
-                <option value="-sent_at">Latest First</option>
-                <option value="sent_at">Oldest First</option>
-                <option value="-created_at">Recently Created</option>
-                <option value="created_at">Oldest Created</option>
+                <option value="-created_at">Latest First</option>
+                <option value="created_at">Oldest First</option>
+                <option value="-sent_at">Latest Sent</option>
+                <option value="sent_at">Oldest Sent</option>
                 <option value="status">Status A-Z</option>
                 <option value="-status">Status Z-A</option>
                 <option value="from_number">From Number A-Z</option>

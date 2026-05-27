@@ -1,5 +1,14 @@
-import { ChevronDown, ChevronUp, ExternalLink, MessageSquare, Plus } from "lucide-react"
+import { useState, useMemo } from "react"
+import { ChevronDown, ChevronUp, ExternalLink, Filter, MessageSquare } from "lucide-react"
 import { useGetTransactionsQuery } from "../store/api/walletApi"
+import WalletTransactionFilters, { getDateRangeForPreset } from "./WalletTransactionFilters"
+
+const DEFAULT_FILTERS = {
+  transaction_type: "",
+  start_date: "",
+  end_date: "",
+  ordering: "-created_at",
+}
 
 export const WalletListItem = ({
   wallet,
@@ -11,15 +20,62 @@ export const WalletListItem = ({
   getBalanceStatus,
   getTransactionIcon,
 }) => {
+  const [showFilters, setShowFilters] = useState(false)
+  const [datePreset, setDatePreset] = useState("all")
+  const [filters, setFilters] = useState(DEFAULT_FILTERS)
+
+  const queryParams = useMemo(() => {
+    const params = {
+      page: currentPage,
+      per_page: 5,
+      wallet: wallet.id,
+      ordering: filters.ordering,
+    }
+    if (filters.transaction_type) {
+      params.transaction_type = filters.transaction_type
+    }
+    if (filters.start_date) {
+      params.start_date = filters.start_date
+    }
+    if (filters.end_date) {
+      params.end_date = filters.end_date
+    }
+    return params
+  }, [currentPage, wallet.id, filters])
+
   const {
     data: txData,
     isLoading: txLoading,
     isFetching: txFetching,
     error: txError,
-  } = useGetTransactionsQuery(
-    { page: currentPage, per_page: 5, wallet: wallet.id },
-    { skip: !expanded } // only fetch when expanded
-  )
+  } = useGetTransactionsQuery(queryParams, { skip: !expanded })
+
+  const handleFilterChange = (field, value) => {
+    if (field === "start_date" || field === "end_date") {
+      setDatePreset("custom")
+    }
+    setFilters((prev) => ({ ...prev, [field]: value }))
+    onPageChange(wallet.id, 1)
+  }
+
+  const handleDatePresetChange = (preset) => {
+    setDatePreset(preset)
+    const range = getDateRangeForPreset(preset)
+    setFilters((prev) => ({ ...prev, ...range }))
+    onPageChange(wallet.id, 1)
+  }
+
+  const clearFilters = () => {
+    setDatePreset("all")
+    setFilters(DEFAULT_FILTERS)
+    onPageChange(wallet.id, 1)
+  }
+
+  const hasActiveFilters =
+    filters.transaction_type ||
+    filters.start_date ||
+    filters.end_date ||
+    filters.ordering !== "-created_at"
 
   const walletTransactions = txData?.results || []
   const totalTransactions = txData?.count || 0
@@ -126,6 +182,34 @@ export const WalletListItem = ({
       {/* Transactions */}
       {expanded && (
         <div className="p-4">
+          <div className="mb-4 flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => setShowFilters(!showFilters)}
+              className={`inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                showFilters || hasActiveFilters
+                  ? "bg-blue-100 text-blue-700 hover:bg-blue-200"
+                  : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
+              }`}
+            >
+              <Filter className="h-4 w-4" />
+              {showFilters ? "Hide filters" : "Show filters"}
+              {hasActiveFilters && !showFilters && (
+                <span className="rounded-full bg-blue-600 px-1.5 py-0.5 text-xs text-white">On</span>
+              )}
+            </button>
+          </div>
+
+          {showFilters && (
+            <WalletTransactionFilters
+              filters={filters}
+              onChange={handleFilterChange}
+              onClear={clearFilters}
+              datePreset={datePreset}
+              onDatePresetChange={handleDatePresetChange}
+            />
+          )}
+
           {txLoading || txFetching ? (
             <div className="text-center py-8 text-gray-500">Loading transactions...</div>
           ) : txError ? (
