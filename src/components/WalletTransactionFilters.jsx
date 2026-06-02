@@ -1,4 +1,4 @@
-import { Calendar, ArrowLeftRight } from "lucide-react";
+import { Calendar, ArrowLeftRight, MessageSquare, Hash, DollarSign } from "lucide-react";
 
 const DATE_PRESETS = [
   { id: "all", label: "All time" },
@@ -35,8 +35,13 @@ export function getDateRangeForPreset(preset) {
 export default function WalletTransactionFilters({ filters, onChange, onClear, datePreset, onDatePresetChange }) {
   const activeCount = [
     filters.transaction_type,
+    filters.direction,
     filters.start_date,
     filters.end_date,
+    filters.min_amount,
+    filters.max_amount,
+    filters.min_segments,
+    filters.max_segments,
     filters.ordering !== "-created_at" ? filters.ordering : "",
   ].filter(Boolean).length;
 
@@ -96,6 +101,22 @@ export default function WalletTransactionFilters({ filters, onChange, onClear, d
 
         <div className="space-y-1">
           <label className="flex items-center gap-1 text-xs font-medium text-gray-700">
+            <MessageSquare className="h-3 w-3 text-gray-500" />
+            SMS direction
+          </label>
+          <select
+            value={filters.direction}
+            onChange={(e) => onChange("direction", e.target.value)}
+            className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+          >
+            <option value="">All directions</option>
+            <option value="inbound">Inbound</option>
+            <option value="outbound">Outbound</option>
+          </select>
+        </div>
+
+        <div className="space-y-1">
+          <label className="flex items-center gap-1 text-xs font-medium text-gray-700">
             <Calendar className="h-3 w-3 text-gray-500" />
             From date
           </label>
@@ -116,6 +137,70 @@ export default function WalletTransactionFilters({ filters, onChange, onClear, d
             type="date"
             value={filters.end_date}
             onChange={(e) => onChange("end_date", e.target.value)}
+            className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+          />
+        </div>
+
+        <div className="space-y-1">
+          <label className="flex items-center gap-1 text-xs font-medium text-gray-700">
+            <DollarSign className="h-3 w-3 text-gray-500" />
+            Min amount
+          </label>
+          <input
+            type="number"
+            min="0"
+            step="0.001"
+            placeholder="0.00"
+            value={filters.min_amount}
+            onChange={(e) => onChange("min_amount", e.target.value)}
+            className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+          />
+        </div>
+
+        <div className="space-y-1">
+          <label className="flex items-center gap-1 text-xs font-medium text-gray-700">
+            <DollarSign className="h-3 w-3 text-gray-500" />
+            Max amount
+          </label>
+          <input
+            type="number"
+            min="0"
+            step="0.001"
+            placeholder="0.00"
+            value={filters.max_amount}
+            onChange={(e) => onChange("max_amount", e.target.value)}
+            className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+          />
+        </div>
+
+        <div className="space-y-1">
+          <label className="flex items-center gap-1 text-xs font-medium text-gray-700">
+            <Hash className="h-3 w-3 text-gray-500" />
+            Min segments
+          </label>
+          <input
+            type="number"
+            min="1"
+            step="1"
+            placeholder="1"
+            value={filters.min_segments}
+            onChange={(e) => onChange("min_segments", e.target.value)}
+            className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+          />
+        </div>
+
+        <div className="space-y-1">
+          <label className="flex items-center gap-1 text-xs font-medium text-gray-700">
+            <Hash className="h-3 w-3 text-gray-500" />
+            Max segments
+          </label>
+          <input
+            type="number"
+            min="1"
+            step="1"
+            placeholder="10"
+            value={filters.max_segments}
+            onChange={(e) => onChange("max_segments", e.target.value)}
             className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
           />
         </div>

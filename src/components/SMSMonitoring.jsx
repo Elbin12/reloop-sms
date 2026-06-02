@@ -10,7 +10,6 @@ import {
   RefreshCw,
   Phone,
   MessageSquare,
-  ArrowUpDown,
   Calendar,
   User,
   MessageCircle,
@@ -39,6 +38,19 @@ const formatRetryError = (err) => {
   if (d.detail != null) return String(d.detail);
   if (d.message != null) return String(d.message);
   return 'Could not retry this message. Please try again.';
+};
+
+const formatCompactDateTime = (value) => {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleString(undefined, {
+    month: '2-digit',
+    day: '2-digit',
+    year: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 };
 
 const SMSMonitoring = () => {
@@ -217,7 +229,7 @@ const SMSMonitoring = () => {
                           dateRange.start || dateRange.end || sortBy !== '-created_at';
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -281,7 +293,7 @@ const SMSMonitoring = () => {
       </div> */}
 
       {/* Enhanced Filters and Search */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+      <div className="min-w-0 bg-white rounded-xl shadow-sm border border-gray-200">
         <div className="p-6 border-b border-gray-200">
           {/* Primary filters */}
           <div className="flex flex-col lg:flex-row lg:items-center space-y-4 lg:space-y-0 lg:space-x-4">
@@ -454,129 +466,118 @@ const SMSMonitoring = () => {
                 </button>
               </div>
             )}
-            <div className="overflow-x-auto">
-              <table className="w-full">
+            <div className="min-w-0 overflow-hidden">
+              <table className="w-full table-fixed">
+                <colgroup>
+                  <col className="w-[7%]" />
+                  <col className="w-[15%]" />
+                  <col className="w-[28%]" />
+                  <col className="w-[11%]" />
+                  <col className="w-[20%]" />
+                  <col className="w-[14%]" />
+                  <col className="w-[5%]" />
+                </colgroup>
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      <div className="flex items-center space-x-1">
-                        <span>Direction</span>
-                        <ArrowUpDown className="w-3 h-3" />
-                      </div>
+                    <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Direction
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">From / To</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Message</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      <div className="flex items-center space-x-1">
-                        <span>Status</span>
-                        <ArrowUpDown className="w-3 h-3" />
-                      </div>
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      <div className="flex items-center space-x-1">
-                        <span>Created At</span>
-                      </div>
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      <div className="flex items-center space-x-1">
-                        <span>Sent At</span>
-                        <ArrowUpDown className="w-3 h-3" />
-                      </div>
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
+                    <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">From / To</th>
+                    <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Message</th>
+                    <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
+                    <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                    <th className="px-3 py-2.5 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {messages.map((message) => (
                     <tr key={message.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center space-x-2">
+                      <td className="px-3 py-3">
+                        <div className="flex items-center">
                           {message.direction === 'outbound' ? (
-                            <div className="flex items-center space-x-2 text-blue-600">
-                              <div className="w-4 h-4 rounded-full bg-blue-100 flex items-center justify-center">
-                                <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
+                            <div className="flex items-center gap-1.5 text-blue-600" title="Outbound">
+                              <div className="w-3.5 h-3.5 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
+                                <div className="w-1.5 h-1.5 bg-blue-600 rounded-full"></div>
                               </div>
-                              <span className="text-sm font-medium">Out</span>
+                              <span className="text-xs font-medium">Out</span>
                             </div>
                           ) : (
-                            <div className="flex items-center space-x-2 text-green-600">
-                              <div className="w-4 h-4 rounded-full bg-green-100 flex items-center justify-center">
-                                <div className="w-2 h-2 bg-green-600 rounded-full"></div>
+                            <div className="flex items-center gap-1.5 text-green-600" title="Inbound">
+                              <div className="w-3.5 h-3.5 rounded-full bg-green-100 flex items-center justify-center shrink-0">
+                                <div className="w-1.5 h-1.5 bg-green-600 rounded-full"></div>
                               </div>
-                              <span className="text-sm font-medium">In</span>
+                              <span className="text-xs font-medium">In</span>
                             </div>
                           )}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm">
-                          <div className="flex items-center space-x-1 text-gray-900">
-                            <Phone className="w-3 h-3" />
-                            <span>{message.from_number}</span>
+                      <td className="px-3 py-3 min-w-0">
+                        <div className="text-xs min-w-0">
+                          <div className="flex items-center gap-1 text-gray-900 min-w-0">
+                            <Phone className="w-3 h-3 shrink-0" />
+                            <span className="truncate" title={message.from_number}>{message.from_number}</span>
                           </div>
-                          <div className="flex items-center space-x-1 text-gray-500 mt-1">
-                            <span>→</span>
-                            <span>{message.to_number}</span>
+                          <div className="flex items-center gap-1 text-gray-500 mt-0.5 min-w-0">
+                            <span className="shrink-0">→</span>
+                            <span className="truncate" title={message.to_number}>{message.to_number}</span>
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-3 py-3 min-w-0">
                         <div 
-                          className="text-sm text-gray-900 max-w-xs truncate cursor-pointer hover:text-blue-600 transition-colors"
+                          className="text-xs text-gray-900 truncate cursor-pointer hover:text-blue-600 transition-colors"
                           onClick={() => setSelectedMessage(message)}
-                          title="Click to view full message"
+                          title={message.message_content || 'Click to view full message'}
                         >
                           {message.message_content}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center space-x-2">
-                          {getStatusIcon(message.status)}
-                          <span className={getStatusBadge(message.status)}>
+                      <td className="px-3 py-3">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="shrink-0">{getStatusIcon(message.status)}</span>
+                          <span className={`${getStatusBadge(message.status)} truncate`}>
                             {message.status?.charAt(0).toUpperCase() + message.status?.slice(1)}
                           </span>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm">
-                          <div className="font-medium text-gray-900">{message.location_name || 'N/A'}</div>
-                          <div className="text-gray-500">ID: {message.location_id || 'N/A'}</div>
+                      <td className="px-3 py-3 min-w-0">
+                        <div className="text-xs min-w-0">
+                          <div className="font-medium text-gray-900 truncate" title={message.location_name || 'N/A'}>
+                            {message.location_name || 'N/A'}
+                          </div>
+                          <div className="text-gray-500 truncate" title={message.location_id || 'N/A'}>
+                            ID: {message.location_id || 'N/A'}
+                          </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(message.created_at).toLocaleString()}
+                      <td className="px-3 py-3 text-xs text-gray-500 whitespace-nowrap">
+                        {formatCompactDateTime(message.created_at)}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(message.sent_at).toLocaleString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                      <td className="px-3 py-3 text-right">
                         {isRetryableMessage(message) ? (
                           <button
                             type="button"
                             onClick={() => handleRetryMessage(message)}
                             disabled={retryingMessageId === message.id}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
-                            title="Request another delivery attempt for this message"
+                            className="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white p-1.5 text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
+                            title="Retry delivery"
                           >
                             {retryingMessageId === message.id ? (
-                              <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
+                              <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden />
                             ) : (
-                              <RefreshCw className="h-4 w-4 shrink-0" aria-hidden />
+                              <RefreshCw className="h-3.5 w-3.5 shrink-0" aria-hidden />
                             )}
-                            Retry
                           </button>
                         ) : (
-                          <span className="text-sm text-gray-300">—</span>
+                          <span className="text-xs text-gray-300">—</span>
                         )}
                       </td>
                     </tr>
                   ))}
                   {messages.length === 0 && !isLoading && (
                     <tr>
-                      <td colSpan="8" className="px-6 py-4 text-center text-gray-500">
+                      <td colSpan="7" className="px-6 py-4 text-center text-gray-500">
                         {hasActiveFilters ? 'No messages match your filters.' : 'No messages found.'}
                       </td>
                     </tr>

@@ -5,8 +5,13 @@ import WalletTransactionFilters, { getDateRangeForPreset } from "./WalletTransac
 
 const DEFAULT_FILTERS = {
   transaction_type: "",
+  direction: "",
   start_date: "",
   end_date: "",
+  min_amount: "",
+  max_amount: "",
+  min_segments: "",
+  max_segments: "",
   ordering: "-created_at",
 }
 
@@ -34,11 +39,26 @@ export const WalletListItem = ({
     if (filters.transaction_type) {
       params.transaction_type = filters.transaction_type
     }
+    if (filters.direction) {
+      params.direction = filters.direction
+    }
     if (filters.start_date) {
       params.start_date = filters.start_date
     }
     if (filters.end_date) {
       params.end_date = filters.end_date
+    }
+    if (filters.min_amount) {
+      params.min_amount = filters.min_amount
+    }
+    if (filters.max_amount) {
+      params.max_amount = filters.max_amount
+    }
+    if (filters.min_segments) {
+      params.min_segments = filters.min_segments
+    }
+    if (filters.max_segments) {
+      params.max_segments = filters.max_segments
     }
     return params
   }, [currentPage, wallet.id, filters])
@@ -73,8 +93,13 @@ export const WalletListItem = ({
 
   const hasActiveFilters =
     filters.transaction_type ||
+    filters.direction ||
     filters.start_date ||
     filters.end_date ||
+    filters.min_amount ||
+    filters.max_amount ||
+    filters.min_segments ||
+    filters.max_segments ||
     filters.ordering !== "-created_at"
 
   const walletTransactions = txData?.results || []
