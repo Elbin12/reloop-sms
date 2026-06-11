@@ -17,6 +17,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { useGetMessagesApiQuery, useRetrySmsMessageMutation } from '../store/api/messagesApi';
+import { useGetHighlevelAccountsQuery } from '../store/api/highlevelAccountApi';
 
 /** Statuses where the backend accepts a delivery retry. */
 const RETRYABLE_STATUSES = new Set(['failed', 'pending']);
@@ -37,6 +38,7 @@ const formatRetryError = (err) => {
   }
   if (d.detail != null) return String(d.detail);
   if (d.message != null) return String(d.message);
+  if (d.error != null) return String(d.error);
   return 'Could not retry this message. Please try again.';
 };
 
@@ -57,6 +59,7 @@ const SMSMonitoring = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [directionFilter, setDirectionFilter] = useState('all');
+  const [locationFilter, setLocationFilter] = useState('');
   const [sortBy, setSortBy] = useState('-created_at');
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
@@ -66,6 +69,8 @@ const SMSMonitoring = () => {
   const [retryNotice, setRetryNotice] = useState(null);
 
   const [retrySmsMessage] = useRetrySmsMessageMutation();
+
+  const { data: accountsData } = useGetHighlevelAccountsQuery({ page_size: 200 });
 
   // Debounce search term to avoid too many API calls
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
@@ -81,7 +86,7 @@ const SMSMonitoring = () => {
   // Reset to first page when filters change
   useEffect(() => {
     setPagination(prev => ({ ...prev, page: 1 }));
-  }, [debouncedSearchTerm, statusFilter, directionFilter, sortBy, dateRange]);
+  }, [debouncedSearchTerm, statusFilter, directionFilter, locationFilter, sortBy, dateRange]);
 
   // Build API query parameters
   const queryParams = useMemo(() => {
@@ -97,6 +102,10 @@ const SMSMonitoring = () => {
 
     if (directionFilter !== 'all') {
       params.direction = directionFilter;
+    }
+
+    if (locationFilter) {
+      params.location_id = locationFilter;
     }
 
     if (debouncedSearchTerm.trim()) {
@@ -221,12 +230,13 @@ const SMSMonitoring = () => {
     setSearchTerm('');
     setStatusFilter('all');
     setDirectionFilter('all');
+    setLocationFilter('');
     setSortBy('-created_at');
     setDateRange({ start: '', end: '' });
   }, []);
 
-  const hasActiveFilters = searchTerm || statusFilter !== 'all' || directionFilter !== 'all' || 
-                          dateRange.start || dateRange.end || sortBy !== '-created_at';
+  const hasActiveFilters = searchTerm || statusFilter !== 'all' || directionFilter !== 'all' ||
+                          locationFilter || dateRange.start || dateRange.end || sortBy !== '-created_at';
 
   return (
     <div className="min-w-0 space-y-6">
@@ -333,6 +343,19 @@ const SMSMonitoring = () => {
               </select>
 
               <select
+                value={locationFilter}
+                onChange={(e) => setLocationFilter(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 max-w-[200px]"
+              >
+                <option value="">All Accounts</option>
+                {(accountsData?.results || []).map((account) => (
+                  <option key={account.location_id} value={account.location_id}>
+                    {account.location_name || account.location_id}
+                  </option>
+                ))}
+              </select>
+
+              <select
                 value={sortBy}
                 onChange={handleSortChange}
                 className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -418,6 +441,11 @@ const SMSMonitoring = () => {
                   {directionFilter !== 'all' && (
                     <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-purple-100 text-purple-800">
                       Direction: {directionFilter}
+                    </span>
+                  )}
+                  {locationFilter && (
+                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-indigo-100 text-indigo-800">
+                      Account: {(accountsData?.results || []).find(a => a.location_id === locationFilter)?.location_name || locationFilter}
                     </span>
                   )}
                   {dateRange.start && (
@@ -731,6 +759,19 @@ const SMSMonitoring = () => {
                       <p className="text-sm text-gray-500 mt-1">
                         ID: {selectedMessage.ghl_account.location_id || 'N/A'}
                       </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Failure reason (only shown for failed messages) */}
+                {selectedMessage.status === 'failed' && selectedMessage.error_message && (
+                  <div>
+                    <div className="flex items-center space-x-2 text-sm text-red-600 mb-2">
+                      <XCircle className="w-4 h-4" />
+                      <span>Failure Reason</span>
+                    </div>
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                      <p className="text-sm text-red-800 break-words">{selectedMessage.error_message}</p>
                     </div>
                   </div>
                 )}

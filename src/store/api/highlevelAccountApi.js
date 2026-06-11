@@ -7,7 +7,13 @@ export const highlevelAccountApi = createApi({
   tagTypes: ['HighLevelAccount'],
   endpoints: (builder) => ({
     getHighlevelAccounts: builder.query({
-      query: ({ page }) => `?page=${page}`,
+      query: ({ page, page_size } = {}) => {
+        const params = new URLSearchParams();
+        if (page) params.set('page', page);
+        if (page_size) params.set('page_size', page_size);
+        const qs = params.toString();
+        return qs ? `?${qs}` : '';
+      },
       providesTags: (result) =>
         result
           ? [
