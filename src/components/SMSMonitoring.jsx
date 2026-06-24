@@ -16,15 +16,79 @@ import {
   X,
   Loader2
 } from 'lucide-react';
-import { useGetMessagesApiQuery, useRetrySmsMessageMutation } from '../store/api/messagesApi';
+import { useGetMessagesApiQuery, useRetrySmsMessageMutation, useBulkRetrySmsMessagesMutation } from '../store/api/messagesApi';
 import { useGetHighlevelAccountsQuery } from '../store/api/highlevelAccountApi';
+import { axiosInstance } from '../store/axios/axios';
+
+/** Redact JWTs and GHL tokens from error strings before display. */
+const sanitizeErrorText = (value, { placeholderForPolluted = false } = {}) => {
+  if (!value) return value;
+  let text = String(value);
+
+  const isPolluted =
+    /can't retry/i.test(text) ||
+    /ghl update failed/i.test(text) ||
+    /ghl_token/i.test(text) ||
+    /eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/.test(text);
+
+  if (placeholderForPolluted && isPolluted) {
+    return 'GHL status sync failed (details redacted)';
+  }
+
+  text = text.replace(/(['"])ghl_token\1\s*:\s*(['"])[^'"]*\2/gi, "$1ghl_token$1: '[redacted]'");
+  text = text.replace(/eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g, '[redacted token]');
+
+  if (/Can't retry/i.test(text) && /update_ghl_message_status_task/i.test(text)) {
+    return 'GHL status sync failed after retries (details redacted)';
+  }
+  if (/^GHL update failed/i.test(text.trim())) {
+    return 'GHL status sync failed (details redacted)';
+  }
+
+  return text;
+};
 
 /** Statuses where the backend accepts a delivery retry. */
 const RETRYABLE_STATUSES = new Set(['failed', 'pending']);
 
+/** Failure categories that can never succeed on retry (mirrors backend PERMANENT_CATEGORIES). */
+const PERMANENT_CATEGORIES = new Set(['opt_out', 'invalid_recipient', 'auth_error', 'config_error']);
+
+/** Filterable failure categories shown in the dropdown. */
+const ERROR_CATEGORY_OPTIONS = [
+  { value: 'provider_billing', label: 'Provider credit' },
+  { value: 'opt_out', label: 'Opt-out' },
+  { value: 'invalid_recipient', label: 'Invalid recipient' },
+  { value: 'rate_limited', label: 'Rate limited' },
+  { value: 'provider_down', label: 'Provider down' },
+  { value: 'auth_error', label: 'Auth error' },
+  { value: 'config_error', label: 'Config error' },
+  { value: 'unknown', label: 'Unknown' },
+];
+
+const CATEGORY_BADGE_CLASSES = {
+  provider_billing: 'bg-orange-100 text-orange-800',
+  opt_out: 'bg-purple-100 text-purple-800',
+  invalid_recipient: 'bg-pink-100 text-pink-800',
+  rate_limited: 'bg-yellow-100 text-yellow-800',
+  provider_down: 'bg-slate-100 text-slate-800',
+  auth_error: 'bg-red-100 text-red-800',
+  config_error: 'bg-red-100 text-red-800',
+  unknown: 'bg-gray-100 text-gray-800',
+};
+
+const getCategoryLabel = (message) => {
+  if (message?.error_category_label) return message.error_category_label;
+  const opt = ERROR_CATEGORY_OPTIONS.find((o) => o.value === message?.error_category);
+  return opt?.label || null;
+};
+
 const isRetryableMessage = (message) => {
   if (!message?.id || !message?.location_id) return false;
-  return RETRYABLE_STATUSES.has(String(message.status || '').toLowerCase());
+  // Prefer the backend's computed flag (accounts for permanent categories).
+  if (typeof message.is_retryable === 'boolean') return message.is_retryable;
+  if (!RETRYABLE_STATUSES.has(String(message.status || '').toLowerCase())) return false;
+  return !PERMANENT_CATEGORIES.has(message.error_category);
 };
 
 const formatRetryError = (err) => {
@@ -60,6 +124,7 @@ const SMSMonitoring = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [directionFilter, setDirectionFilter] = useState('all');
   const [locationFilter, setLocationFilter] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
   const [sortBy, setSortBy] = useState('-created_at');
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
@@ -67,8 +132,13 @@ const SMSMonitoring = () => {
   const [selectedMessage, setSelectedMessage] = useState(null);
   const [retryingMessageId, setRetryingMessageId] = useState(null);
   const [retryNotice, setRetryNotice] = useState(null);
+  const [isExporting, setIsExporting] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const [includePermanent, setIncludePermanent] = useState(false);
+  const [isBulkRetrying, setIsBulkRetrying] = useState(false);
 
   const [retrySmsMessage] = useRetrySmsMessageMutation();
+  const [bulkRetrySmsMessages] = useBulkRetrySmsMessagesMutation();
 
   const { data: accountsData } = useGetHighlevelAccountsQuery({ page_size: 200 });
 
@@ -86,7 +156,7 @@ const SMSMonitoring = () => {
   // Reset to first page when filters change
   useEffect(() => {
     setPagination(prev => ({ ...prev, page: 1 }));
-  }, [debouncedSearchTerm, statusFilter, directionFilter, locationFilter, sortBy, dateRange]);
+  }, [debouncedSearchTerm, statusFilter, directionFilter, locationFilter, categoryFilter, sortBy, dateRange]);
 
   // Build API query parameters
   const queryParams = useMemo(() => {
@@ -108,6 +178,10 @@ const SMSMonitoring = () => {
       params.location_id = locationFilter;
     }
 
+    if (categoryFilter) {
+      params.error_category = categoryFilter;
+    }
+
     if (debouncedSearchTerm.trim()) {
       params.search = debouncedSearchTerm.trim();
     }
@@ -121,7 +195,7 @@ const SMSMonitoring = () => {
     }
 
     return params;
-  }, [pagination, statusFilter, directionFilter, sortBy, debouncedSearchTerm, dateRange]);
+  }, [pagination, statusFilter, directionFilter, locationFilter, categoryFilter, sortBy, debouncedSearchTerm, dateRange]);
 
   const { data, isLoading, isFetching, refetch } = useGetMessagesApiQuery(queryParams);
 
@@ -192,6 +266,121 @@ const SMSMonitoring = () => {
     [retrySmsMessage]
   );
 
+  // Backend-style filter params (double-underscore dates) shared by export and
+  // "select all matching filter" bulk retry, so both act on the same set.
+  const serverFilterParams = useMemo(() => {
+    const params = {};
+    if (statusFilter !== 'all') params.status = statusFilter;
+    if (directionFilter !== 'all') params.direction = directionFilter;
+    if (locationFilter) params.location_id = locationFilter;
+    if (categoryFilter) params.error_category = categoryFilter;
+    if (debouncedSearchTerm.trim()) params.search = debouncedSearchTerm.trim();
+    if (dateRange.start) params.created_at__gte = dateRange.start;
+    if (dateRange.end) params.created_at__lte = dateRange.end;
+    return params;
+  }, [statusFilter, directionFilter, locationFilter, categoryFilter, debouncedSearchTerm, dateRange]);
+
+  const handleExport = useCallback(async () => {
+    setRetryNotice(null);
+    setIsExporting(true);
+    try {
+      const params = { ordering: sortBy, ...serverFilterParams };
+
+      const response = await axiosInstance.get('sms/sms-messages/export/', {
+        params,
+        responseType: 'blob',
+      });
+
+      const blobUrl = window.URL.createObjectURL(
+        new Blob([response.data], { type: 'text/csv' })
+      );
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.setAttribute(
+        'download',
+        `sms_messages_${new Date().toISOString().slice(0, 10)}.csv`
+      );
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (e) {
+      setRetryNotice({ type: 'error', text: 'Export failed. Please try again.' });
+    } finally {
+      setIsExporting(false);
+    }
+  }, [sortBy, serverFilterParams]);
+
+  // --- Bulk selection helpers ---
+  const selectableMessages = useMemo(
+    () => messages.filter((m) => isRetryableMessage(m)),
+    [messages]
+  );
+
+  const toggleRowSelection = useCallback((id) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const togglePageSelection = useCallback(() => {
+    setSelectedIds((prev) => {
+      const pageIds = selectableMessages.map((m) => m.id);
+      const allSelected = pageIds.length > 0 && pageIds.every((id) => prev.has(id));
+      const next = new Set(prev);
+      if (allSelected) {
+        pageIds.forEach((id) => next.delete(id));
+      } else {
+        pageIds.forEach((id) => next.add(id));
+      }
+      return next;
+    });
+  }, [selectableMessages]);
+
+  const clearSelection = useCallback(() => setSelectedIds(new Set()), []);
+
+  const runBulkRetry = useCallback(
+    async (payload, confirmText) => {
+      if (confirmText && !window.confirm(confirmText)) return;
+      setRetryNotice(null);
+      setIsBulkRetrying(true);
+      try {
+        const res = await bulkRetrySmsMessages(payload).unwrap();
+        setRetryNotice({
+          type: 'success',
+          text: res?.message || 'Bulk retry queued. Statuses will update as the provider processes them.',
+        });
+        clearSelection();
+      } catch (e) {
+        setRetryNotice({ type: 'error', text: formatRetryError(e) });
+      } finally {
+        setIsBulkRetrying(false);
+      }
+    },
+    [bulkRetrySmsMessages, clearSelection]
+  );
+
+  const handleBulkRetrySelected = useCallback(() => {
+    const ids = Array.from(selectedIds);
+    if (!ids.length) return;
+    runBulkRetry(
+      { message_ids: ids, include_permanent: includePermanent },
+      `Retry ${ids.length} selected message(s)? This will re-charge the wallet for each send.`
+    );
+  }, [selectedIds, includePermanent, runBulkRetry]);
+
+  const handleBulkRetryAllMatching = useCallback(() => {
+    runBulkRetry(
+      { select_all: true, include_permanent: includePermanent, filters: serverFilterParams },
+      `Retry ALL messages matching the current filter (up to 5000)?\n\nThis re-charges the wallet per send. ${
+        includePermanent ? 'Opt-out/invalid will ALSO be retried.' : 'Opt-out/invalid/auth/config are skipped.'
+      }`
+    );
+  }, [serverFilterParams, includePermanent, runBulkRetry]);
+
   const getPageFromUrl = (url) => {
     if (!url) return null;
     const params = new URL(url).searchParams;
@@ -231,12 +420,18 @@ const SMSMonitoring = () => {
     setStatusFilter('all');
     setDirectionFilter('all');
     setLocationFilter('');
+    setCategoryFilter('');
     setSortBy('-created_at');
     setDateRange({ start: '', end: '' });
   }, []);
 
+  // Drop selections whenever the visible set changes, to avoid acting on stale rows.
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [debouncedSearchTerm, statusFilter, directionFilter, locationFilter, categoryFilter, dateRange, pagination.page]);
+
   const hasActiveFilters = searchTerm || statusFilter !== 'all' || directionFilter !== 'all' ||
-                          locationFilter || dateRange.start || dateRange.end || sortBy !== '-created_at';
+                          locationFilter || categoryFilter || dateRange.start || dateRange.end || sortBy !== '-created_at';
 
   return (
     <div className="min-w-0 space-y-6">
@@ -246,20 +441,21 @@ const SMSMonitoring = () => {
           <h1 className="text-3xl font-bold text-gray-900">SMS Monitoring</h1>
           <p className="text-gray-600 mt-2">Track message delivery and status in real-time</p>
         </div>
-        {/* <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-3">
           <button
-            onClick={() => refetch()}
-            className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-            disabled={isFetching}
+            onClick={handleExport}
+            disabled={isExporting}
+            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+            title="Export the current filtered list to CSV"
           >
-            <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
-            <span>{isFetching ? 'Refreshing...' : 'Refresh'}</span>
+            {isExporting ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Download className="w-4 h-4" />
+            )}
+            <span>{isExporting ? 'Exporting...' : 'Export CSV'}</span>
           </button>
-          <button className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-            <Download className="w-4 h-4" />
-            <span>Export</span>
-          </button>
-        </div> */}
+        </div>
       </div>
 
       {/* Status cards */}
@@ -340,6 +536,18 @@ const SMSMonitoring = () => {
                 <option value="all">All Directions</option>
                 <option value="inbound">Inbound</option>
                 <option value="outbound">Outbound</option>
+              </select>
+
+              <select
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                title="Filter by failure reason"
+              >
+                <option value="">All Reasons</option>
+                {ERROR_CATEGORY_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
               </select>
 
               <select
@@ -448,6 +656,11 @@ const SMSMonitoring = () => {
                       Account: {(accountsData?.results || []).find(a => a.location_id === locationFilter)?.location_name || locationFilter}
                     </span>
                   )}
+                  {categoryFilter && (
+                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-orange-100 text-orange-800">
+                      Reason: {ERROR_CATEGORY_OPTIONS.find(o => o.value === categoryFilter)?.label || categoryFilter}
+                    </span>
+                  )}
                   {dateRange.start && (
                     <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-orange-100 text-orange-800">
                       From: {dateRange.start}
@@ -494,19 +707,86 @@ const SMSMonitoring = () => {
                 </button>
               </div>
             )}
+
+            {/* Bulk actions bar */}
+            <div className="mx-6 mt-4 mb-2 flex flex-wrap items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+              <span className="text-sm font-medium text-gray-700">
+                {selectedIds.size > 0 ? `${selectedIds.size} selected` : 'Bulk retry'}
+              </span>
+
+              <label className="flex items-center gap-1.5 text-xs text-gray-600" title="Also retry opt-out / invalid / auth / config failures (normally skipped)">
+                <input
+                  type="checkbox"
+                  checked={includePermanent}
+                  onChange={(e) => setIncludePermanent(e.target.checked)}
+                  className="rounded border-gray-300"
+                />
+                Include opt-out / invalid
+              </label>
+
+              <div className="flex flex-wrap items-center gap-2 ml-auto">
+                {selectedIds.size > 0 && (
+                  <button
+                    type="button"
+                    onClick={clearSelection}
+                    className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800 underline"
+                  >
+                    Clear selection
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={handleBulkRetrySelected}
+                  disabled={isBulkRetrying || selectedIds.size === 0}
+                  className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-800 shadow-sm hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isBulkRetrying ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                  Retry selected
+                </button>
+                <button
+                  type="button"
+                  onClick={handleBulkRetryAllMatching}
+                  disabled={isBulkRetrying || totalCount === 0}
+                  className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  title="Retry every message matching the current filter (up to 5000)"
+                >
+                  {isBulkRetrying ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                  Retry all matching filter
+                </button>
+              </div>
+            </div>
+
             <div className="min-w-0 overflow-hidden">
               <table className="w-full table-fixed">
                 <colgroup>
+                  <col className="w-[4%]" />
                   <col className="w-[7%]" />
-                  <col className="w-[15%]" />
-                  <col className="w-[28%]" />
-                  <col className="w-[11%]" />
+                  <col className="w-[14%]" />
+                  <col className="w-[24%]" />
+                  <col className="w-[12%]" />
                   <col className="w-[20%]" />
                   <col className="w-[14%]" />
                   <col className="w-[5%]" />
                 </colgroup>
                 <thead className="bg-gray-50">
                   <tr>
+                    <th className="px-3 py-2.5 text-left">
+                      <input
+                        type="checkbox"
+                        className="rounded border-gray-300"
+                        checked={selectableMessages.length > 0 && selectableMessages.every((m) => selectedIds.has(m.id))}
+                        ref={(el) => {
+                          if (el) {
+                            const someSelected = selectableMessages.some((m) => selectedIds.has(m.id));
+                            const allSelected = selectableMessages.length > 0 && selectableMessages.every((m) => selectedIds.has(m.id));
+                            el.indeterminate = someSelected && !allSelected;
+                          }
+                        }}
+                        onChange={togglePageSelection}
+                        disabled={selectableMessages.length === 0}
+                        title="Select all retryable rows on this page"
+                      />
+                    </th>
                     <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Direction
                     </th>
@@ -521,6 +801,19 @@ const SMSMonitoring = () => {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {messages.map((message) => (
                     <tr key={message.id} className="hover:bg-gray-50">
+                      <td className="px-3 py-3">
+                        {isRetryableMessage(message) ? (
+                          <input
+                            type="checkbox"
+                            className="rounded border-gray-300"
+                            checked={selectedIds.has(message.id)}
+                            onChange={() => toggleRowSelection(message.id)}
+                            title="Select for bulk retry"
+                          />
+                        ) : (
+                          <span className="text-xs text-gray-300">—</span>
+                        )}
+                      </td>
                       <td className="px-3 py-3">
                         <div className="flex items-center">
                           {message.direction === 'outbound' ? (
@@ -568,6 +861,23 @@ const SMSMonitoring = () => {
                             {message.status?.charAt(0).toUpperCase() + message.status?.slice(1)}
                           </span>
                         </div>
+                        {message.status === 'failed' && getCategoryLabel(message) && (
+                          <div className="mt-1">
+                            <span
+                              className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${CATEGORY_BADGE_CLASSES[message.error_category] || CATEGORY_BADGE_CLASSES.unknown}`}
+                            >
+                              {getCategoryLabel(message)}
+                            </span>
+                          </div>
+                        )}
+                        {message.status === 'failed' && message.error_message && (
+                          <div
+                            className="mt-1 text-[11px] leading-snug text-red-600 truncate"
+                            title={sanitizeErrorText(message.error_message, { placeholderForPolluted: true })}
+                          >
+                            {sanitizeErrorText(message.error_message, { placeholderForPolluted: true })}
+                          </div>
+                        )}
                       </td>
                       <td className="px-3 py-3 min-w-0">
                         <div className="text-xs min-w-0">
@@ -605,7 +915,7 @@ const SMSMonitoring = () => {
                   ))}
                   {messages.length === 0 && !isLoading && (
                     <tr>
-                      <td colSpan="7" className="px-6 py-4 text-center text-gray-500">
+                      <td colSpan="8" className="px-6 py-4 text-center text-gray-500">
                         {hasActiveFilters ? 'No messages match your filters.' : 'No messages found.'}
                       </td>
                     </tr>
@@ -711,6 +1021,13 @@ const SMSMonitoring = () => {
                     <span className={getStatusBadge(selectedMessage.status)}>
                       {selectedMessage.status?.charAt(0).toUpperCase() + selectedMessage.status?.slice(1)}
                     </span>
+                    {getCategoryLabel(selectedMessage) && (
+                      <span
+                        className={`px-2 py-1 rounded-full text-xs font-medium ${CATEGORY_BADGE_CLASSES[selectedMessage.error_category] || CATEGORY_BADGE_CLASSES.unknown}`}
+                      >
+                        {getCategoryLabel(selectedMessage)}
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -771,7 +1088,24 @@ const SMSMonitoring = () => {
                       <span>Failure Reason</span>
                     </div>
                     <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                      <p className="text-sm text-red-800 break-words">{selectedMessage.error_message}</p>
+                      <p className="text-sm text-red-800 break-words">
+                        {sanitizeErrorText(selectedMessage.error_message, { placeholderForPolluted: true })}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* GHL status-sync diagnostic (separate from the real failure reason) */}
+                {selectedMessage.ghl_sync_error && (
+                  <div>
+                    <div className="flex items-center space-x-2 text-sm text-amber-600 mb-2">
+                      <AlertCircle className="w-4 h-4" />
+                      <span>GHL Sync Note</span>
+                    </div>
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                      <p className="text-sm text-amber-800 break-words">
+                        {sanitizeErrorText(selectedMessage.ghl_sync_error)}
+                      </p>
                     </div>
                   </div>
                 )}

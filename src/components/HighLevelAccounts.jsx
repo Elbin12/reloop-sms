@@ -22,12 +22,15 @@ import {
   ExternalLink,
   Star,
   Wallet,
+  RefreshCw,
 } from 'lucide-react';
 
 import {
   useGetHighlevelAccountsQuery,
   useDeleteHighlevelAccountMutation,
   useUpdateHighlevelAccountMutation,
+  useRefreshTransmitBalancesMutation,
+  HIGHLEVEL_ACCOUNTS_PAGE_SIZE,
 } from '../store/api/highlevelAccountApi';
 
 import { useBuyPremiumNumbersMutation, useGetAvailableNumbersQuery, useGetLocationNumbersQuery, useRemoveNumberMutation } from '../store/api/dashboardApi';
@@ -91,6 +94,30 @@ const getErrorMessage = (err, fallbackMessage) => {
   return fallbackMessage;
 };
 
+const formatMoney = (value, currency = 'AUD') => {
+  if (value === null || value === undefined || value === '') return '—';
+  const num = Number(value);
+  if (Number.isNaN(num)) return '—';
+  return `${currency} ${num.toFixed(2)}`;
+};
+
+const BillingBadge = ({ billing }) => {
+  if (!billing) {
+    return <span className="text-xs text-gray-400">No mapping</span>;
+  }
+
+  const isClientPays = billing.client_pays;
+  const badgeClass = isClientPays
+    ? 'bg-amber-100 text-amber-800 border-amber-200'
+    : 'bg-emerald-100 text-emerald-800 border-emerald-200';
+
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${badgeClass}`}>
+      {billing.billing_type || (isClientPays ? 'Client Pays' : 'I Pay')}
+    </span>
+  );
+};
+
 const HighLevelAccounts = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showEditModal, setShowEditModal] = useState(false);
@@ -108,6 +135,7 @@ const HighLevelAccounts = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [expandedRows, setExpandedRows] = useState(new Set());
   const [warningMessage, setWarningMessage] = useState('');
+  const [refreshMessage, setRefreshMessage] = useState('');
   const location = useLocation();
 
   useEffect(() => {
@@ -128,15 +156,33 @@ const HighLevelAccounts = () => {
     data: accountsData = {},
     isLoading,
     isError,
-  } = useGetHighlevelAccountsQuery({ page: currentPage });
+  } = useGetHighlevelAccountsQuery({
+    page: currentPage,
+    page_size: HIGHLEVEL_ACCOUNTS_PAGE_SIZE,
+  });
 
   const accounts = accountsData?.results || [];
+  const agencyBalance = accountsData?.transmit_agency_balance;
   const totalCount = accountsData?.count || 0;
-  const pageSize = 10;
-  const totalPages = Math.ceil(totalCount / pageSize);
+  const totalPages = Math.max(1, Math.ceil(totalCount / HIGHLEVEL_ACCOUNTS_PAGE_SIZE));
 
   const [deleteAccount] = useDeleteHighlevelAccountMutation();
   const [updateAccount, { isLoading: isUpdatingAccount }] = useUpdateHighlevelAccountMutation();
+  const [refreshTransmitBalances, { isLoading: isRefreshingBalances }] = useRefreshTransmitBalancesMutation();
+
+  const handleRefreshBalances = async () => {
+    setRefreshMessage('');
+    try {
+      const result = await refreshTransmitBalances().unwrap();
+      const updated = result?.accounts_updated ?? 0;
+      const failed = result?.accounts_failed ?? 0;
+      setRefreshMessage(
+        `Balances refreshed — ${updated} account(s) updated${failed ? `, ${failed} failed` : ''}.`
+      );
+    } catch (err) {
+      setRefreshMessage(getErrorMessage(err, 'Failed to refresh Transmit balances.'));
+    }
+  };
 
   const handleOnboard = () => {
     window.location.href = `${BASE_URL}/core/auth/connect/`;
@@ -230,26 +276,49 @@ const HighLevelAccounts = () => {
           onClose={() => setWarningMessage('')} 
         />
       )}
+
+      {refreshMessage && (
+        <Toast
+          message={refreshMessage}
+          onClose={() => setRefreshMessage('')}
+        />
+      )}
       
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">HighLevel Accounts</h1>
           <p className="text-gray-600 mt-2">Manage HighLevel account connections and associated numbers</p>
         </div>
-        <button
-          onClick={handleOnboard}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Add HighLevel Account</span>
-        </button>
+        <div className="flex items-center space-x-3">
+          <button
+            onClick={handleRefreshBalances}
+            disabled={isRefreshingBalances}
+            className="border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 flex items-center space-x-2 disabled:opacity-50"
+          >
+            <RefreshCw className={`w-4 h-4 ${isRefreshingBalances ? 'animate-spin' : ''}`} />
+            <span>{isRefreshingBalances ? 'Refreshing…' : 'Refresh Transmit Balances'}</span>
+          </button>
+          <button
+            onClick={handleOnboard}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add HighLevel Account</span>
+          </button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <SummaryCard title="Total Accounts" value={totalCount} icon={<Building className="w-8 h-8 text-blue-500" />} />
         <SummaryCard title="Connected" value={accounts.filter(a => a.status === 'connected').length} icon={<CheckCircle className="w-8 h-8 text-green-500" />} />
         <SummaryCard title="Errors" value={accounts.filter(a => a.status === 'error').length} icon={<AlertCircle className="w-8 h-8 text-red-500" />} />
         <SummaryCard title="Timezones" value={[...new Set(accounts.map(a => a.timezone))].length} icon={<Globe className="w-8 h-8 text-indigo-500" />} />
+        <SummaryCard
+          title="Agency Transmit Balance"
+          value={formatMoney(agencyBalance?.balance, agencyBalance?.currency || 'AUD')}
+          subtitle={agencyBalance?.synced_at ? `Synced ${new Date(agencyBalance.synced_at).toLocaleString()}` : 'Not synced yet — click Refresh'}
+          icon={<Wallet className="w-8 h-8 text-purple-500" />}
+        />
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200">
@@ -287,7 +356,9 @@ const HighLevelAccounts = () => {
                   <TableHeadCell>Account Details</TableHeadCell>
                   <TableHeadCell>Business Email</TableHeadCell>
                   <TableHeadCell>Business Phone</TableHeadCell>
-                  <TableHeadCell>Balance</TableHeadCell>
+                  <TableHeadCell>Reloop Balance</TableHeadCell>
+                  <TableHeadCell>Transmit Balance</TableHeadCell>
+                  <TableHeadCell>Billing</TableHeadCell>
                   <TableHeadCell>Inbound Charge</TableHeadCell>
                   <TableHeadCell>Outbound Charge</TableHeadCell>
                   <TableHeadCell>Time Zone</TableHeadCell>
@@ -319,7 +390,31 @@ const HighLevelAccounts = () => {
                         </td>
                         <td className="px-3 py-4 text-sm text-gray-500">{account.business_email}</td>
                         <td className="px-3 py-4 text-sm text-gray-500">{account.business_phone}</td>
-                        <td className="px-3 py-4 text-sm text-gray-500">{account.wallet ? account.wallet?.balance : 0}</td>
+                        <td className="px-3 py-4 text-sm text-gray-900 font-medium">
+                          {formatMoney(account.wallet?.balance, 'AUD')}
+                        </td>
+                        <td className="px-3 py-4 text-sm">
+                          {account.transmit_billing ? (
+                            <div className="space-y-1">
+                              <div className="font-medium text-gray-900">
+                                {formatMoney(
+                                  account.transmit_billing.balance,
+                                  account.transmit_billing.currency || 'AUD'
+                                )}
+                              </div>
+                              {account.transmit_billing.balance_synced_at && (
+                                <div className="text-xs text-gray-400">
+                                  {new Date(account.transmit_billing.balance_synced_at).toLocaleString()}
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-gray-400">—</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-4 text-sm">
+                          <BillingBadge billing={account.transmit_billing} />
+                        </td>
                         <td className="px-3 py-4 text-sm text-gray-500">{account.wallet ? account.wallet?.inbound_segment_charge : 'Nil'}</td>
                         <td className="px-3 py-4 text-sm text-gray-500">{account.wallet ? account.wallet?.outbound_segment_charge : 'Nil'}</td>
                         <td className="px-3 py-4 text-sm text-gray-500">{account.timezone}</td>
@@ -343,7 +438,7 @@ const HighLevelAccounts = () => {
                       </tr>
                       {expandedRows.has(account.id) && (
                         <tr>
-                          <td colSpan="10" className="px-3 py-4 bg-gray-50">
+                          <td colSpan="12" className="px-3 py-4 bg-gray-50">
                             <NumbersSection 
                               locationId={account.location_id} 
                               formatPhoneNumber={formatPhoneNumber}
@@ -854,12 +949,13 @@ const NumberCard = ({ number, formatPhoneNumber, onPurchase, onRemove }) => {
 };
 
 // Reusable components
-const SummaryCard = ({ title, value, icon }) => (
+const SummaryCard = ({ title, value, subtitle, icon }) => (
   <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
     <div className="flex items-center justify-between">
       <div>
         <p className="text-sm text-gray-600">{title}</p>
         <p className="text-2xl font-bold text-gray-900">{value}</p>
+        {subtitle && <p className="text-xs text-gray-500 mt-1">{subtitle}</p>}
       </div>
       {icon}
     </div>

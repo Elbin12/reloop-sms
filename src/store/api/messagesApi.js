@@ -7,7 +7,7 @@ export const messagesApi = createApi({
   tagTypes: ['messagesApi'],
   endpoints: (builder) => ({
     getMessagesApi: builder.query({
-      query: ({ page, page_size, status, search, direction, ghl_account, transmitsms_account, ordering, created_at_gte, created_at_lte }) => {
+      query: ({ page, page_size, status, search, direction, ghl_account, transmitsms_account, location_id, error_category, ordering, created_at_gte, created_at_lte }) => {
         const params = { page, page_size };
         
         // Add optional filters
@@ -25,6 +25,12 @@ export const messagesApi = createApi({
         }
         if (transmitsms_account) {
           params.transmitsms_account = transmitsms_account;
+        }
+        if (location_id) {
+          params.location_id = location_id;
+        }
+        if (error_category) {
+          params.error_category = error_category;
         }
         if (ordering) {
           params.ordering = ordering;
@@ -69,10 +75,42 @@ export const messagesApi = createApi({
       invalidatesTags: (_result, error, { id }) =>
         error ? [] : [{ type: 'messagesApi', id: 'LIST' }, { type: 'messagesApi', id }],
     }),
+    bulkRetrySmsMessages: builder.mutation({
+      async queryFn({ message_ids, select_all, include_permanent, filters } = {}) {
+        try {
+          const body = { include_permanent: !!include_permanent };
+          let url = 'sms/messages/bulk-retry/';
+          if (select_all) {
+            body.select_all = true;
+            // Pass current filters as query params so the backend re-resolves the set
+            const search = new URLSearchParams();
+            Object.entries(filters || {}).forEach(([k, v]) => {
+              if (v !== undefined && v !== null && v !== '') search.append(k, v);
+            });
+            const qs = search.toString();
+            if (qs) url += `?${qs}`;
+          } else {
+            body.message_ids = message_ids || [];
+          }
+          const { data } = await axiosInstance.post(url, body);
+          return { data };
+        } catch (axiosError) {
+          return {
+            error: {
+              status: axiosError.response?.status,
+              data: axiosError.response?.data || axiosError.message,
+            },
+          };
+        }
+      },
+      invalidatesTags: (_result, error) =>
+        error ? [] : [{ type: 'messagesApi', id: 'LIST' }],
+    }),
   }),
 });
 
 export const {
   useGetMessagesApiQuery,
   useRetrySmsMessageMutation,
+  useBulkRetrySmsMessagesMutation,
 } = messagesApi;
