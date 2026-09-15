@@ -47,8 +47,8 @@ const Layout = ({ children }) => {
         </header>
 
         {/* Main Content Area */}
-        <main className="flex-1 overflow-y-auto p-6">
-          <div className="max-w-7xl mx-auto">{children}</div>
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6">
+          <div className="w-full max-w-[1600px] mx-auto min-w-0">{children}</div>
         </main>
       </div>
     </div>

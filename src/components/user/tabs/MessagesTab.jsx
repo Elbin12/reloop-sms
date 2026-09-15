@@ -1,33 +1,83 @@
-import React, { useState, useMemo, useCallback } from 'react'
+import React, { useState, useMemo, useCallback, useEffect } from 'react'
 import SortDropdown from '../SortDropdown'
 import MessagesFilters from '../MessagesFilters'
 import { useGetMessagesQuery, useSendQueuedMessagesMutation } from '../../../store/api/userDashboardApi';
+import { useRetrySmsMessageMutation, useBulkRetrySmsMessagesMutation } from '../../../store/api/messagesApi';
 import { formatDistanceToNow } from 'date-fns';
-import { CheckSquare, Square, Send, CheckCircle, XCircle, AlertCircle, X, MessageSquare, Phone, Calendar } from 'lucide-react';
+import {
+  CheckSquare, Square, Send, CheckCircle, XCircle, AlertCircle, X,
+  MessageSquare, Phone, Calendar, Search, Filter, Info, Download, Loader2, RefreshCw, ListChecks
+} from 'lucide-react';
+import { axiosInstance } from '../../../store/axios/axios';
+import {
+  ERROR_CATEGORY_OPTIONS,
+  CATEGORY_BADGE_CLASSES,
+  sanitizeErrorText,
+  isRetryableMessage,
+  formatRetryError,
+  RETRY_CHECKBOX_CLASS,
+} from '../messageFilterConstants';
+
+const RetryCheckbox = ({ checked, onChange, title }) => (
+  <input
+    type="checkbox"
+    checked={checked}
+    onChange={onChange}
+    title={title}
+    aria-label={title}
+    className={`${RETRY_CHECKBOX_CLASS} ${checked ? 'ring-2 ring-blue-500 ring-offset-1 bg-blue-50' : 'hover:bg-red-50'}`}
+  />
+);
+
+const EMPTY_FILTERS = {
+  status: "",
+  direction: "",
+  error_category: "",
+  to_number: "",
+  from_number: "",
+  sent_at__gte: "",
+  sent_at__lte: "",
+  created_at__gte: "",
+  created_at__lte: "",
+};
 
 const MessagesTab = ({locationId}) => {
-    const [messagesFilters, setMessagesFilters] = useState({
-        status: "",
-        direction: "",
-        to_number: "",
-        from_number: "",
-        sent_at__gte: "",
-        sent_at__lte: "",
-    });
+    const [messagesFilters, setMessagesFilters] = useState(EMPTY_FILTERS);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState('');
     const [messagesPage, setMessagesPage] = useState(1);
     const [messagesOrdering, setMessagesOrdering] = useState("-created_at");
-    const [showMessagesFilters, setShowMessagesFilters] = useState(false);
-    const [selectedMessageIds, setSelectedMessageIds] = useState(new Set());
+    const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+    const [queuedSelectedIds, setQueuedSelectedIds] = useState(new Set());
+    const [retrySelectedIds, setRetrySelectedIds] = useState(new Set());
+    const [includePermanent, setIncludePermanent] = useState(false);
     const [sendResult, setSendResult] = useState(null);
+    const [retryNotice, setRetryNotice] = useState(null);
     const [isSending, setIsSending] = useState(false);
+    const [isBulkRetrying, setIsBulkRetrying] = useState(false);
+    const [retryingMessageId, setRetryingMessageId] = useState(null);
     const [selectedMessage, setSelectedMessage] = useState(null);
+    const [isExporting, setIsExporting] = useState(false);
+    const [exportNotice, setExportNotice] = useState(null);
+
+    useEffect(() => {
+        const timer = setTimeout(() => setDebouncedSearch(searchTerm), 300);
+        return () => clearTimeout(timer);
+    }, [searchTerm]);
+
+    useEffect(() => {
+        setMessagesPage(1);
+        setQueuedSelectedIds(new Set());
+        setRetrySelectedIds(new Set());
+    }, [debouncedSearch, messagesFilters, messagesOrdering]);
 
     const messagesParams = {
-            locationId,
-            page: messagesPage,
-            ordering: messagesOrdering,
-                ...Object.fromEntries(
-                Object.entries(messagesFilters).filter(([_, v]) => v !== "")
+        locationId,
+        page: messagesPage,
+        ordering: messagesOrdering,
+        ...(debouncedSearch.trim() ? { search: debouncedSearch.trim() } : {}),
+        ...Object.fromEntries(
+            Object.entries(messagesFilters).filter(([_, v]) => v !== "")
         ),
     };
     const {
@@ -38,26 +88,29 @@ const MessagesTab = ({locationId}) => {
     } = useGetMessagesQuery(messagesParams, { refetchOnMountOrArgChange: true });
     
     const [sendQueuedMessages] = useSendQueuedMessagesMutation();
+    const [retrySmsMessage] = useRetrySmsMessageMutation();
+    const [bulkRetrySmsMessages] = useBulkRetrySmsMessagesMutation();
+
+    const totalCount = messages?.count || 0;
 
     const getStatusColor = (status) => {
         switch (status) {
             case "delivered":
                 return "bg-green-100 text-green-800 border-green-200";
-                case "failed":
+            case "failed":
                 return "bg-red-100 text-red-800 border-red-200";
             case "pending":
                 return "bg-yellow-100 text-yellow-800 border-yellow-200";
             default:
                 return "bg-gray-100 text-gray-800 border-gray-200";
-            }
-        };
-        
-        const getDirectionColor = (direction) => {
-            return direction === "outbound"
+        }
+    };
+
+    const getDirectionColor = (direction) => {
+        return direction === "outbound"
             ? "bg-blue-50 text-blue-700 border-blue-200"
             : "bg-green-50 text-green-700 border-green-200";
-        };
-        
+    };
     const handleSortChange = (value) => {
         setMessagesOrdering(value);
     };
@@ -66,63 +119,208 @@ const MessagesTab = ({locationId}) => {
     };
 
     const clearMessagesFilters = () => {
-        setMessagesFilters({
-        status: "",
-        direction: "",
-        to_number: "",
-        from_number: "",
-        sent_at__gte: "",
-        sent_at__lte: "",
-        });
+        setMessagesFilters(EMPTY_FILTERS);
+        setSearchTerm('');
     };
 
-    // Get queued messages from current page
+    const applyQuickFilter = useCallback((patch) => {
+        setMessagesFilters((prev) => ({
+            ...prev,
+            ...(patch.status != null ? { status: patch.status } : {}),
+            ...(patch.error_category != null ? { error_category: patch.error_category } : {}),
+            ...(patch.direction != null ? { direction: patch.direction } : {}),
+        }));
+    }, []);
+
+    const hasActiveFilters =
+        searchTerm ||
+        Object.values(messagesFilters).some(Boolean) ||
+        messagesOrdering !== '-created_at';
+
+    const activeFilterCount = Object.values(messagesFilters).filter(Boolean).length + (searchTerm ? 1 : 0);
+
+    const exportParams = useMemo(() => ({
+        location_id: locationId,
+        ordering: messagesOrdering,
+        ...(debouncedSearch.trim() ? { search: debouncedSearch.trim() } : {}),
+        ...Object.fromEntries(
+            Object.entries(messagesFilters).filter(([_, v]) => v !== "")
+        ),
+    }), [locationId, messagesOrdering, debouncedSearch, messagesFilters]);
+
+    const handleExport = useCallback(async () => {
+        setExportNotice(null);
+        setIsExporting(true);
+        try {
+            const response = await axiosInstance.get('sms/sms-messages/export/', {
+                params: exportParams,
+                responseType: 'blob',
+            });
+
+            const blobUrl = window.URL.createObjectURL(
+                new Blob([response.data], { type: 'text/csv' })
+            );
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.setAttribute(
+                'download',
+                `sms_messages_${locationId}_${new Date().toISOString().slice(0, 10)}.csv`
+            );
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(blobUrl);
+            setExportNotice({ type: 'success', text: 'CSV export downloaded successfully.' });
+        } catch {
+            setExportNotice({ type: 'error', text: 'Export failed. Please try again.' });
+        } finally {
+            setIsExporting(false);
+        }
+    }, [exportParams, locationId]);
+
+    const serverFilterParams = useMemo(() => ({
+        location_id: locationId,
+        ...(debouncedSearch.trim() ? { search: debouncedSearch.trim() } : {}),
+        ...Object.fromEntries(
+            Object.entries(messagesFilters).filter(([_, v]) => v !== "")
+        ),
+    }), [locationId, debouncedSearch, messagesFilters]);
+
     const queuedMessages = useMemo(() => {
-        return messages?.results?.filter(m => m.status === 'queued') || [];
+        return messages?.results?.filter((m) => m.status === 'queued') || [];
     }, [messages?.results]);
 
-    // Check if all queued messages are selected
-    const allQueuedSelected = useMemo(() => {
-        return queuedMessages.length > 0 && queuedMessages.every(m => selectedMessageIds.has(m.id));
-    }, [queuedMessages, selectedMessageIds]);
+    const selectableRetryMessages = useMemo(
+        () => (messages?.results || []).filter((m) => isRetryableMessage(m)),
+        [messages?.results]
+    );
 
-    // Handle select/deselect all queued messages
+    const retryableOnPageCount = selectableRetryMessages.length;
+    const failedOnPageCount = useMemo(
+        () => (messages?.results || []).filter((m) => m.status === 'failed').length,
+        [messages?.results]
+    );
+
+    const allQueuedSelected = useMemo(() => {
+        return queuedMessages.length > 0 && queuedMessages.every((m) => queuedSelectedIds.has(m.id));
+    }, [queuedMessages, queuedSelectedIds]);
+
+    const allRetrySelected = useMemo(() => {
+        return retryableOnPageCount > 0 && selectableRetryMessages.every((m) => retrySelectedIds.has(m.id));
+    }, [selectableRetryMessages, retrySelectedIds, retryableOnPageCount]);
+
     const handleSelectAllQueued = useCallback(() => {
-        if (allQueuedSelected) {
-            // Deselect all queued
-            setSelectedMessageIds(prev => {
-                const newSet = new Set(prev);
-                queuedMessages.forEach(m => newSet.delete(m.id));
-                return newSet;
-            });
-        } else {
-            // Select all queued
-            setSelectedMessageIds(prev => {
-                const newSet = new Set(prev);
-                queuedMessages.forEach(m => newSet.add(m.id));
-                return newSet;
-            });
-        }
+        setQueuedSelectedIds((prev) => {
+            const next = new Set(prev);
+            if (allQueuedSelected) {
+                queuedMessages.forEach((m) => next.delete(m.id));
+            } else {
+                queuedMessages.forEach((m) => next.add(m.id));
+            }
+            return next;
+        });
     }, [allQueuedSelected, queuedMessages]);
 
-    // Handle individual message selection
-    const handleToggleMessage = useCallback((messageId) => {
-        setSelectedMessageIds(prev => {
-            const newSet = new Set(prev);
-            if (newSet.has(messageId)) {
-                newSet.delete(messageId);
-            } else {
-                newSet.add(messageId);
-            }
-            return newSet;
+    const toggleRetrySelection = useCallback((id) => {
+        setRetrySelectedIds((prev) => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
         });
     }, []);
 
-    // Handle send queued messages
-    const handleSendQueued = useCallback(async () => {
-        if (selectedMessageIds.size === 0) return;
+    const toggleRetryPageSelection = useCallback(() => {
+        setRetrySelectedIds((prev) => {
+            const pageIds = selectableRetryMessages.map((m) => m.id);
+            const allSelected = pageIds.length > 0 && pageIds.every((id) => prev.has(id));
+            const next = new Set(prev);
+            if (allSelected) pageIds.forEach((id) => next.delete(id));
+            else pageIds.forEach((id) => next.add(id));
+            return next;
+        });
+    }, [selectableRetryMessages]);
 
-        const messageIdsArray = Array.from(selectedMessageIds);
+    const clearRetrySelection = useCallback(() => setRetrySelectedIds(new Set()), []);
+
+    const handleToggleQueued = useCallback((messageId) => {
+        setQueuedSelectedIds((prev) => {
+            const next = new Set(prev);
+            if (next.has(messageId)) next.delete(messageId);
+            else next.add(messageId);
+            return next;
+        });
+    }, []);
+
+    const handleRetryMessage = useCallback(
+        async (message, { closeModalOnSuccess } = {}) => {
+            if (!isRetryableMessage(message)) return;
+            setRetryNotice(null);
+            setRetryingMessageId(message.id);
+            try {
+                await retrySmsMessage({ id: message.id, location_id: locationId }).unwrap();
+                setRetryNotice({
+                    type: 'success',
+                    text: 'Retry submitted. Status will update when the message is processed.',
+                });
+                if (closeModalOnSuccess) setSelectedMessage(null);
+                setTimeout(() => refetchMessages(), 1000);
+            } catch (e) {
+                setRetryNotice({ type: 'error', text: formatRetryError(e) });
+            } finally {
+                setRetryingMessageId(null);
+            }
+        },
+        [retrySmsMessage, locationId, refetchMessages]
+    );
+
+    const runBulkRetry = useCallback(
+        async (payload, confirmText) => {
+            if (confirmText && !window.confirm(confirmText)) return;
+            setRetryNotice(null);
+            setIsBulkRetrying(true);
+            try {
+                const res = await bulkRetrySmsMessages({
+                    ...payload,
+                    location_id: locationId,
+                }).unwrap();
+                setRetryNotice({
+                    type: 'success',
+                    text: res?.message || 'Bulk retry queued. Statuses will update as messages are processed.',
+                });
+                clearRetrySelection();
+                setTimeout(() => refetchMessages(), 1000);
+            } catch (e) {
+                setRetryNotice({ type: 'error', text: formatRetryError(e) });
+            } finally {
+                setIsBulkRetrying(false);
+            }
+        },
+        [bulkRetrySmsMessages, locationId, clearRetrySelection, refetchMessages]
+    );
+
+    const handleBulkRetrySelected = useCallback(() => {
+        const ids = Array.from(retrySelectedIds);
+        if (!ids.length) return;
+        runBulkRetry(
+            { message_ids: ids, include_permanent: includePermanent },
+            `Retry ${ids.length} selected message(s)? This will re-charge your wallet for each send.`
+        );
+    }, [retrySelectedIds, includePermanent, runBulkRetry]);
+
+    const handleBulkRetryAllMatching = useCallback(() => {
+        runBulkRetry(
+            { select_all: true, include_permanent: includePermanent, filters: serverFilterParams },
+            `Retry ALL messages matching your current filter (up to 5000)?\n\nThis re-charges your wallet per send. ${
+                includePermanent ? 'Opt-out/invalid will ALSO be retried.' : 'Opt-out/invalid/auth/config are skipped.'
+            }`
+        );
+    }, [serverFilterParams, includePermanent, runBulkRetry]);
+
+    const handleSendQueued = useCallback(async () => {
+        if (queuedSelectedIds.size === 0) return;
+
+        const messageIdsArray = Array.from(queuedSelectedIds);
         setIsSending(true);
         setSendResult(null);
         
@@ -133,12 +331,8 @@ const MessagesTab = ({locationId}) => {
             }).unwrap();
 
             setSendResult(result);
-            // Clear selections after successful send
-            setSelectedMessageIds(new Set());
-            // Refetch messages to update status
-            setTimeout(() => {
-                refetchMessages();
-            }, 1000);
+            setQueuedSelectedIds(new Set());
+            setTimeout(() => refetchMessages(), 1000);
         } catch (error) {
             setSendResult({
                 message: 'Failed to send messages',
@@ -161,70 +355,299 @@ const MessagesTab = ({locationId}) => {
         } finally {
             setIsSending(false);
         }
-    }, [selectedMessageIds, sendQueuedMessages, locationId, refetchMessages]);
+    }, [queuedSelectedIds, sendQueuedMessages, locationId, refetchMessages]);
+
+    const renderRetryButton = (message, { compact = false } = {}) => (
+        <button
+            type="button"
+            onClick={() => handleRetryMessage(message)}
+            disabled={retryingMessageId === message.id}
+            className={`inline-flex items-center justify-center rounded-lg border border-blue-200 bg-blue-50 font-medium text-blue-700 shadow-sm hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50 ${
+                compact ? 'gap-1 px-2 py-1 text-xs' : 'gap-1.5 px-2.5 py-1.5 text-xs'
+            }`}
+            title="Retry delivery"
+        >
+            {retryingMessageId === message.id ? (
+                <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
+            ) : (
+                <RefreshCw className="h-3.5 w-3.5 shrink-0" />
+            )}
+            <span>Retry</span>
+        </button>
+    );
   return (
-    <div className="bg-white rounded-lg shadow-sm p-2 sm:p-4 border">
-        <div className="flex justify-between items-center mb-4">
-            <div className="flex items-center gap-2 sm:gap-4 md:gap-6 lg:gap-9">
-                <h3 className="font-semibold text-base sm:text-lg md:text-xl lg:text-2xl text-gray-900">
-                SMS Messages
+    <div className="bg-white rounded-lg shadow-sm p-3 sm:p-5 border min-w-0">
+        {/* Header */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 min-w-0">
+                <h3 className="font-semibold text-lg sm:text-xl text-gray-900 shrink-0">
+                    SMS Messages
                 </h3>
                 <SortDropdown
-                options={[
-                    {
-                    value: "-created_at",
-                    label: "Newest first",
-                    description: "Most recent messages first",
-                    },
-                    {
-                    value: "created_at",
-                    label: "Oldest first",
-                    description: "Oldest messages first",
-                    },
-                    {
-                    value: "-cost",
-                    label: "Highest cost",
-                    description: "Most expensive messages first",
-                    },
-                    {
-                    value: "cost",
-                    label: "Lowest cost",
-                    description: "Least expensive messages first",
-                    },
-                    {
-                    value: "-segments",
-                    label: "Most segments",
-                    description: "Messages with most segments first",
-                    },
-                    {
-                    value: "segments",
-                    label: "Fewest segments",
-                    description: "Messages with fewest segments first",
-                    },
-                ]}
-                selectedValue={messagesOrdering}
-                onChange={handleSortChange}
-                label="Sort messages by"
+                    options={[
+                        { value: "-created_at", label: "Newest first", description: "Most recent messages first" },
+                        { value: "created_at", label: "Oldest first", description: "Oldest messages first" },
+                        { value: "-cost", label: "Highest cost", description: "Most expensive messages first" },
+                        { value: "cost", label: "Lowest cost", description: "Least expensive messages first" },
+                        { value: "-segments", label: "Most segments", description: "Messages with most segments first" },
+                        { value: "segments", label: "Fewest segments", description: "Messages with fewest segments first" },
+                    ]}
+                    selectedValue={messagesOrdering}
+                    onChange={handleSortChange}
+                    label="Sort messages by"
                 />
             </div>
-            <div className="flex gap-2">
-                        <button
-                onClick={() => setShowMessagesFilters(!showMessagesFilters)}
-                className="px-3 py-1.5 sm:px-4 sm:py-2 md:px-5 md:py-2.5 text-xs sm:text-sm md:text-base bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors font-medium"
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+                <button
+                    type="button"
+                    onClick={handleExport}
+                    disabled={isExporting}
+                    className="inline-flex items-center gap-2 px-3 py-2 sm:px-4 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:cursor-not-allowed disabled:opacity-50 font-medium"
+                    title="Export the current filtered list to CSV"
                 >
-                {showMessagesFilters ? "Hide Filters" : "Show Filters"}
+                    {isExporting ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                        <Download className="w-4 h-4" />
+                    )}
+                    <span>{isExporting ? 'Exporting...' : 'Export CSV'}</span>
+                </button>
+                {hasActiveFilters && (
+                    <button
+                        type="button"
+                        onClick={clearMessagesFilters}
+                        className="text-sm text-blue-600 hover:text-blue-800 underline"
+                    >
+                        Clear filters
+                    </button>
+                )}
+            </div>
+        </div>
+
+        {exportNotice && (
+            <div
+                className={`mb-4 flex items-start justify-between gap-3 rounded-lg border px-4 py-3 text-sm ${
+                    exportNotice.type === 'success'
+                        ? 'border-green-200 bg-green-50 text-green-900'
+                        : 'border-red-200 bg-red-50 text-red-900'
+                }`}
+                role="status"
+            >
+                <span>{exportNotice.text}</span>
+                <button
+                    type="button"
+                    onClick={() => setExportNotice(null)}
+                    className="shrink-0 rounded p-0.5 hover:bg-black/5"
+                    aria-label="Dismiss"
+                >
+                    <X className="h-4 w-4" />
                 </button>
             </div>
+        )}
+
+        {/* Filter help callout */}
+        <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50/80 p-3 sm:p-4">
+            <div className="flex gap-2">
+                <Info className="h-5 w-5 shrink-0 text-blue-600 mt-0.5" />
+                <div className="min-w-0 text-sm text-gray-700">
+                    <p className="font-medium text-gray-900">Filter your messages</p>
+                    <p className="mt-1">
+                        Search by phone or message text. Use <strong>Status</strong> and <strong>Failure reason</strong> to
+                        find failed or queued messages. <strong>Tick failed messages</strong> to bulk retry, or use{' '}
+                        <strong>Retry</strong> on a single message. Queued messages can be sent once your wallet has credit.
+                        Use <strong>Export CSV</strong> to download your filtered list.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        {/* Primary filters — always visible */}
+        <div className="mb-4 space-y-3 rounded-lg border border-gray-200 bg-gray-50/50 p-3 sm:p-4">
+            <div className="relative">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                    type="text"
+                    placeholder="Search phone numbers or message text..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                />
             </div>
 
-            {/* Messages Filters */}
-            {showMessagesFilters && (
+            <MessagesFilters
+                variant="primary"
+                filters={messagesFilters}
+                onChange={handleMessagesFilterChange}
+                onClear={clearMessagesFilters}
+            />
+
+            <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-medium text-gray-500 mr-1">Quick filters:</span>
+                <button
+                    type="button"
+                    onClick={() => applyQuickFilter({ status: 'failed', error_category: '' })}
+                    className="rounded-full border border-red-200 bg-white px-2.5 py-1 text-xs font-medium text-red-700 hover:bg-red-50"
+                >
+                    Failed
+                </button>
+                <button
+                    type="button"
+                    onClick={() => applyQuickFilter({ status: 'queued', error_category: '' })}
+                    className="rounded-full border border-amber-200 bg-white px-2.5 py-1 text-xs font-medium text-amber-800 hover:bg-amber-50"
+                >
+                    Queued
+                </button>
+                <button
+                    type="button"
+                    onClick={() => applyQuickFilter({ status: 'failed', error_category: 'rate_limited' })}
+                    className="rounded-full border border-yellow-200 bg-white px-2.5 py-1 text-xs font-medium text-yellow-800 hover:bg-yellow-50"
+                >
+                    Rate limited
+                </button>
+                <button
+                    type="button"
+                    onClick={() => applyQuickFilter({ status: 'failed', error_category: 'provider_billing' })}
+                    className="rounded-full border border-orange-200 bg-white px-2.5 py-1 text-xs font-medium text-orange-800 hover:bg-orange-50"
+                >
+                    Provider credit
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                    className="ml-auto inline-flex items-center gap-1 rounded-lg border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                >
+                    <Filter className="h-3.5 w-3.5" />
+                    {showAdvancedFilters ? 'Hide' : 'More'} filters
+                    {activeFilterCount > 0 && !showAdvancedFilters && (
+                        <span className="ml-1 rounded-full bg-blue-100 px-1.5 text-blue-800">{activeFilterCount}</span>
+                    )}
+                </button>
+            </div>
+        </div>
+
+        {showAdvancedFilters && (
             <MessagesFilters
                 filters={messagesFilters}
                 onChange={handleMessagesFilterChange}
                 onClear={clearMessagesFilters}
             />
-            )}
+        )}
+
+        {/* Active filter badges */}
+        {hasActiveFilters && (
+            <div className="mb-4 flex flex-wrap items-center gap-2">
+                <span className="text-xs text-gray-500">Active:</span>
+                {searchTerm && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-800">
+                        Search: &quot;{searchTerm}&quot;
+                    </span>
+                )}
+                {messagesFilters.status && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-green-100 text-green-800 capitalize">
+                        Status: {messagesFilters.status}
+                    </span>
+                )}
+                {messagesFilters.direction && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-purple-100 text-purple-800 capitalize">
+                        {messagesFilters.direction}
+                    </span>
+                )}
+                {messagesFilters.error_category && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-orange-100 text-orange-800">
+                        {ERROR_CATEGORY_OPTIONS.find((o) => o.value === messagesFilters.error_category)?.label}
+                    </span>
+                )}
+            </div>
+        )}
+
+        {/* Bulk retry callout + actions */}
+        <div className="mb-4 rounded-xl border border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 p-3 sm:p-4">
+            <div className="flex gap-2 mb-3">
+                <ListChecks className="h-5 w-5 shrink-0 text-blue-600 mt-0.5" />
+                <div className="text-sm text-gray-700">
+                    <p className="font-semibold text-gray-900">Bulk retry failed messages</p>
+                    <p className="mt-0.5">
+                        Failed messages show a <strong>red checkbox</strong>. Select them and retry, or use{' '}
+                        <strong>Retry all matching filter</strong>. Each retry re-charges your wallet.
+                    </p>
+                </div>
+            </div>
+            <div className="rounded-lg border-2 border-blue-200 bg-blue-50/80 px-3 py-3 sm:px-4">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="flex flex-wrap items-center gap-3">
+                        {retryableOnPageCount > 0 && (
+                            <label className="flex items-center gap-2 text-xs text-gray-700">
+                                <RetryCheckbox
+                                    checked={allRetrySelected}
+                                    onChange={toggleRetryPageSelection}
+                                    title="Select all retryable on this page"
+                                />
+                                <span>Select page ({retryableOnPageCount} retryable)</span>
+                            </label>
+                        )}
+                        <span className="text-sm font-medium text-gray-800">
+                            {retrySelectedIds.size > 0
+                                ? `${retrySelectedIds.size} selected for retry`
+                                : 'No messages selected'}
+                        </span>
+                    </div>
+                    <label className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs text-gray-700">
+                        <input
+                            type="checkbox"
+                            checked={includePermanent}
+                            onChange={(e) => setIncludePermanent(e.target.checked)}
+                            className="h-4 w-4 rounded border-gray-300 text-blue-600 accent-blue-600"
+                        />
+                        Also retry opt-out / invalid
+                    </label>
+                    <div className="flex flex-col sm:flex-row flex-wrap gap-2">
+                        {retrySelectedIds.size > 0 && (
+                            <button
+                                type="button"
+                                onClick={clearRetrySelection}
+                                className="text-sm text-gray-600 hover:text-gray-800 underline"
+                            >
+                                Clear selection
+                            </button>
+                        )}
+                        <button
+                            type="button"
+                            onClick={handleBulkRetrySelected}
+                            disabled={isBulkRetrying || retrySelectedIds.size === 0}
+                            className="inline-flex items-center justify-center gap-2 rounded-lg border-2 border-blue-300 bg-white px-3 py-2 text-sm font-semibold text-blue-800 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            {isBulkRetrying ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                            Retry selected ({retrySelectedIds.size})
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleBulkRetryAllMatching}
+                            disabled={isBulkRetrying || totalCount === 0}
+                            className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            {isBulkRetrying ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                            Retry all matching filter
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {retryNotice && (
+            <div
+                className={`mb-4 flex items-start justify-between gap-3 rounded-lg border px-4 py-3 text-sm ${
+                    retryNotice.type === 'success'
+                        ? 'border-green-200 bg-green-50 text-green-900'
+                        : 'border-red-200 bg-red-50 text-red-900'
+                }`}
+                role="status"
+            >
+                <span>{retryNotice.text}</span>
+                <button type="button" onClick={() => setRetryNotice(null)} className="shrink-0 rounded p-0.5 hover:bg-black/5" aria-label="Dismiss">
+                    <X className="h-4 w-4" />
+                </button>
+            </div>
+        )}
 
             {/* Queued Messages Action Bar */}
             {queuedMessages.length > 0 && (
@@ -242,20 +665,20 @@ const MessagesTab = ({locationId}) => {
                                 )}
                                 <span>{allQueuedSelected ? 'Deselect All' : 'Select All'} Queued ({queuedMessages.length})</span>
                             </button>
-                            {selectedMessageIds.size > 0 && (
+                            {queuedSelectedIds.size > 0 && (
                                 <span className="text-xs sm:text-sm md:text-base text-blue-600 font-medium">
-                                    {selectedMessageIds.size} message{selectedMessageIds.size !== 1 ? 's' : ''} selected
+                                    {queuedSelectedIds.size} message{queuedSelectedIds.size !== 1 ? 's' : ''} selected
                                 </span>
                             )}
                         </div>
-                        {selectedMessageIds.size > 0 && (
+                        {queuedSelectedIds.size > 0 && (
                             <button
                                 onClick={handleSendQueued}
                                 disabled={isSending}
                                 className="flex items-center space-x-2 px-3 py-1.5 sm:px-4 sm:py-2 md:px-5 md:py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm md:text-base font-medium"
                             >
                                 <Send className={`w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 ${isSending ? 'animate-pulse' : ''}`} />
-                                <span>{isSending ? 'Sending...' : `Send Selected (${selectedMessageIds.size})`}</span>
+                                <span>{isSending ? 'Sending...' : `Send Selected (${queuedSelectedIds.size})`}</span>
                             </button>
                         )}
                     </div>
@@ -356,33 +779,52 @@ const MessagesTab = ({locationId}) => {
             </div>
             ) : (
             <div className="space-y-4">
-                {messages?.results.map((m) => (
+                {messages?.results?.length === 0 && (
+                    <div className="py-10 text-center text-gray-500 text-sm">
+                        {hasActiveFilters ? 'No messages match your filters.' : 'No messages found.'}
+                    </div>
+                )}
+                {messages?.results.map((m) => {
+                    const retryable = isRetryableMessage(m);
+                    const isFailed = m.status === 'failed';
+                    return (
                     <div
                         key={m.id}
-                        className={`p-2 sm:p-4 border rounded-lg ${
-                            m.status === 'queued' ? 'border-blue-200 bg-blue-50/30' : 'border-gray-200'
+                        className={`p-3 sm:p-4 border rounded-lg min-w-0 ${
+                            m.status === 'queued'
+                                ? 'border-amber-200 bg-amber-50/40'
+                                : retryable && isFailed
+                                ? 'border-red-200 bg-red-50/30 border-l-4 border-l-red-400'
+                                : 'border-gray-200'
                         }`}
                     >
-                        <div className="flex justify-between items-start">
-                        {m.status === 'queued' && (
-                            <div className="mr-3 mt-1">
+                        <div className="flex justify-between items-start gap-2 min-w-0">
+                        <div className="shrink-0 pt-1">
+                            {m.status === 'queued' ? (
                                 <button
-                                    onClick={() => handleToggleMessage(m.id)}
+                                    onClick={() => handleToggleQueued(m.id)}
                                     className="flex items-center justify-center"
-                                    aria-label={selectedMessageIds.has(m.id) ? 'Deselect message' : 'Select message'}
+                                    aria-label={queuedSelectedIds.has(m.id) ? 'Deselect message' : 'Select message'}
                                 >
-                                    {selectedMessageIds.has(m.id) ? (
+                                    {queuedSelectedIds.has(m.id) ? (
                                         <CheckSquare className="w-5 h-5 text-blue-600" />
                                     ) : (
-                                        <Square className="w-5 h-5 text-gray-400 hover:text-blue-600" />
+                                        <Square className="w-5 h-5 text-amber-600 hover:text-blue-600" />
                                     )}
                                 </button>
-                            </div>
-                        )}
-                        {m.status !== 'queued' && <div className="w-5"></div>}
-                        <div className="flex-1">
+                            ) : retryable ? (
+                                <RetryCheckbox
+                                    checked={retrySelectedIds.has(m.id)}
+                                    onChange={() => toggleRetrySelection(m.id)}
+                                    title="Select for bulk retry"
+                                />
+                            ) : (
+                                <span className="inline-block w-5" aria-hidden />
+                            )}
+                        </div>
+                        <div className="flex-1 min-w-0">
                             <p 
-                                className="font-medium text-gray-900 mb-2 text-sm sm:text-base md:text-lg cursor-pointer hover:text-blue-600 transition-colors leading-relaxed"
+                                className="font-medium text-gray-900 mb-2 text-sm sm:text-base cursor-pointer hover:text-blue-600 transition-colors leading-relaxed break-words"
                                 onClick={() => setSelectedMessage(m)}
                                 title="Click to view full message"
                             >
@@ -390,27 +832,48 @@ const MessagesTab = ({locationId}) => {
                                     ? (
                                         <>
                                             {m.message_content.substring(0, 120)}
-                                            <span className="text-blue-600 font-normal text-xs sm:text-sm">... (click to view full message)</span>
+                                            <span className="text-blue-600 font-normal text-xs sm:text-sm">... (view full)</span>
                                         </>
                                     )
                                     : m.message_content}
                             </p>
-                            <div className="flex items-center gap-2 mb-2">
-                            <span className="text-xs sm:text-sm md:text-base text-gray-600">
+                            <div className="flex flex-wrap items-center gap-2 mb-2">
+                            <span className="text-xs sm:text-sm text-gray-600">
                                 {m.direction === "outbound" ? "To" : "From"}:{" "}
                                 {m.direction === "outbound"
                                 ? m.to_number
                                 : m.from_number}
                             </span>
                             </div>
+                            {m.status === 'failed' && (m.error_category_label || m.error_message) && (
+                                <div className="mb-2 space-y-1">
+                                    {m.error_category_label && (
+                                        <span
+                                            className={`inline-block px-2 py-0.5 rounded-full border text-xs font-medium ${
+                                                CATEGORY_BADGE_CLASSES[m.error_category] || CATEGORY_BADGE_CLASSES.unknown
+                                            }`}
+                                        >
+                                            {m.error_category_label}
+                                        </span>
+                                    )}
+                                    {m.error_message && (
+                                        <p className="text-xs text-red-600 line-clamp-2">
+                                            {sanitizeErrorText(m.error_message, { placeholderForPolluted: true })}
+                                        </p>
+                                    )}
+                                </div>
+                            )}
                         </div>
-                        <div className="text-right ml-4">
-                            <p className="font-medium text-base sm:text-lg md:text-xl text-gray-900">
+                        <div className="text-right ml-2 shrink-0 flex flex-col items-end gap-2">
+                            {retryable && renderRetryButton(m, { compact: true })}
+                            <div>
+                            <p className="font-medium text-sm sm:text-base text-gray-900">
                             ${m.cost}
                             </p>
-                            <p className="text-xs sm:text-sm text-gray-500">
+                            <p className="text-xs text-gray-500">
                             {m.segments} segment{m.segments !== 1 ? "s" : ""}
                             </p>
+                            </div>
                         </div>
                         </div>
 
@@ -461,7 +924,8 @@ const MessagesTab = ({locationId}) => {
                         </div>
                         </div>
                     </div>
-                    ))}
+                    );
+                })}
 
                     {/* Pagination */}
                     <div className="flex justify-between items-center pt-6 border-t border-gray-200">
@@ -586,6 +1050,32 @@ const MessagesTab = ({locationId}) => {
                                 </div>
                             </div>
 
+                            {/* Failure reason */}
+                            {selectedMessage.status === 'failed' && (selectedMessage.error_category_label || selectedMessage.error_message) && (
+                                <div>
+                                    <div className="flex items-center space-x-2 text-xs sm:text-sm text-red-600 mb-2">
+                                        <XCircle className="w-4 h-4" />
+                                        <span>Failure reason</span>
+                                    </div>
+                                    <div className="bg-red-50 border border-red-200 rounded-lg p-3 sm:p-4 space-y-2">
+                                        {selectedMessage.error_category_label && (
+                                            <span
+                                                className={`inline-block px-2 py-0.5 rounded-full border text-xs font-medium ${
+                                                    CATEGORY_BADGE_CLASSES[selectedMessage.error_category] || CATEGORY_BADGE_CLASSES.unknown
+                                                }`}
+                                            >
+                                                {selectedMessage.error_category_label}
+                                            </span>
+                                        )}
+                                        {selectedMessage.error_message && (
+                                            <p className="text-sm text-red-800 break-words">
+                                                {sanitizeErrorText(selectedMessage.error_message, { placeholderForPolluted: true })}
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Timestamps */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div>
@@ -645,10 +1135,25 @@ const MessagesTab = ({locationId}) => {
                     </div>
 
                     {/* Modal Footer */}
-                    <div className="px-4 sm:px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end">
+                    <div className="px-4 sm:px-6 py-4 border-t border-gray-200 bg-gray-50 flex flex-wrap justify-end gap-2">
+                        {isRetryableMessage(selectedMessage) && (
+                            <button
+                                type="button"
+                                onClick={() => handleRetryMessage(selectedMessage, { closeModalOnSuccess: true })}
+                                disabled={retryingMessageId === selectedMessage.id}
+                                className="inline-flex items-center gap-2 px-4 py-2 sm:px-5 sm:py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-xs sm:text-sm disabled:opacity-50"
+                            >
+                                {retryingMessageId === selectedMessage.id ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                    <RefreshCw className="h-4 w-4" />
+                                )}
+                                Retry message
+                            </button>
+                        )}
                         <button
                             onClick={() => setSelectedMessage(null)}
-                            className="px-4 py-2 sm:px-5 sm:py-2.5 md:px-6 md:py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-xs sm:text-sm md:text-base"
+                            className="px-4 py-2 sm:px-5 sm:py-2.5 md:px-6 md:py-3 border border-gray-300 bg-white text-gray-800 rounded-lg hover:bg-gray-50 transition-colors font-medium text-xs sm:text-sm md:text-base"
                         >
                             Close
                         </button>

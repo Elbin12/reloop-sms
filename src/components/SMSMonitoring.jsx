@@ -14,7 +14,9 @@ import {
   User,
   MessageCircle,
   X,
-  Loader2
+  Loader2,
+  CheckSquare,
+  ListChecks
 } from 'lucide-react';
 import { useGetMessagesApiQuery, useRetrySmsMessageMutation, useBulkRetrySmsMessagesMutation } from '../store/api/messagesApi';
 import { useGetHighlevelAccountsQuery } from '../store/api/highlevelAccountApi';
@@ -118,6 +120,21 @@ const formatCompactDateTime = (value) => {
     minute: '2-digit',
   });
 };
+
+const RETRY_CHECKBOX_CLASS =
+  'h-4 w-4 shrink-0 cursor-pointer rounded border-2 border-red-400 bg-white text-blue-600 shadow-sm accent-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-1';
+
+const RetryCheckbox = ({ checked, onChange, title, id }) => (
+  <input
+    id={id}
+    type="checkbox"
+    checked={checked}
+    onChange={onChange}
+    title={title}
+    aria-label={title}
+    className={`${RETRY_CHECKBOX_CLASS} ${checked ? 'ring-2 ring-blue-500 ring-offset-1 bg-blue-50' : 'hover:bg-red-50'}`}
+  />
+);
 
 const SMSMonitoring = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -433,19 +450,51 @@ const SMSMonitoring = () => {
   const hasActiveFilters = searchTerm || statusFilter !== 'all' || directionFilter !== 'all' ||
                           locationFilter || categoryFilter || dateRange.start || dateRange.end || sortBy !== '-created_at';
 
+  const failedOnPageCount = useMemo(
+    () => messages.filter((m) => m.status === 'failed').length,
+    [messages]
+  );
+
+  const retryableOnPageCount = selectableMessages.length;
+
+  const applyQuickFilter = useCallback((patch) => {
+    if (patch.status != null) setStatusFilter(patch.status);
+    if (patch.category != null) setCategoryFilter(patch.category);
+    if (patch.direction != null) setDirectionFilter(patch.direction);
+  }, []);
+
+  const renderRetryButton = (message, { compact = false } = {}) => (
+    <button
+      type="button"
+      onClick={() => handleRetryMessage(message)}
+      disabled={retryingMessageId === message.id}
+      className={`inline-flex items-center justify-center rounded-lg border border-blue-200 bg-blue-50 font-medium text-blue-700 shadow-sm hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 ${
+        compact ? 'gap-1 px-2 py-1 text-xs' : 'gap-1.5 px-2.5 py-1.5 text-xs'
+      }`}
+      title="Retry delivery"
+    >
+      {retryingMessageId === message.id ? (
+        <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden />
+      ) : (
+        <RefreshCw className="h-3.5 w-3.5 shrink-0" aria-hidden />
+      )}
+      <span>Retry</span>
+    </button>
+  );
+
   return (
-    <div className="min-w-0 space-y-6">
+    <div className="min-w-0 w-full space-y-5">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">SMS Monitoring</h1>
-          <p className="text-gray-600 mt-2">Track message delivery and status in real-time</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">SMS Monitoring</h1>
+          <p className="text-gray-600 mt-1 text-sm sm:text-base">Track delivery, filter by failure type, and bulk retry messages</p>
         </div>
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center shrink-0">
           <button
             onClick={handleExport}
             disabled={isExporting}
-            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:cursor-not-allowed disabled:opacity-50 text-sm"
             title="Export the current filtered list to CSV"
           >
             {isExporting ? (
@@ -455,6 +504,54 @@ const SMSMonitoring = () => {
             )}
             <span>{isExporting ? 'Exporting...' : 'Export CSV'}</span>
           </button>
+        </div>
+      </div>
+
+      {/* Bulk retry feature callout */}
+      <div className="rounded-xl border border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 p-4 sm:p-5 shadow-sm">
+        <div className="flex gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white">
+            <ListChecks className="h-5 w-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-base font-semibold text-gray-900">Bulk retry &amp; filter by error type</h2>
+            <p className="mt-1 text-sm text-gray-700 leading-relaxed">
+              Use the <strong>All Reasons</strong> filter to group failures (rate limited, opt-out, provider credit, etc.).
+              Failed messages show a <strong>highlighted checkbox</strong> — tick rows to retry, or use{' '}
+              <strong>Retry all matching filter</strong> to resend every message in your current view (up to 5,000).
+              Each retry re-charges the location wallet.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => applyQuickFilter({ status: 'failed', category: '' })}
+                className="rounded-full border border-red-200 bg-white px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-50"
+              >
+                Show failed only
+              </button>
+              <button
+                type="button"
+                onClick={() => applyQuickFilter({ status: 'failed', category: 'rate_limited' })}
+                className="rounded-full border border-yellow-200 bg-white px-3 py-1 text-xs font-medium text-yellow-800 hover:bg-yellow-50"
+              >
+                Rate limited
+              </button>
+              <button
+                type="button"
+                onClick={() => applyQuickFilter({ status: 'failed', category: 'provider_billing' })}
+                className="rounded-full border border-orange-200 bg-white px-3 py-1 text-xs font-medium text-orange-800 hover:bg-orange-50"
+              >
+                Provider credit
+              </button>
+              <button
+                type="button"
+                onClick={() => applyQuickFilter({ status: 'queued', category: '' })}
+                className="rounded-full border border-amber-200 bg-white px-3 py-1 text-xs font-medium text-amber-800 hover:bg-amber-50"
+              >
+                Queued (low balance)
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -542,9 +639,9 @@ const SMSMonitoring = () => {
                 value={categoryFilter}
                 onChange={(e) => setCategoryFilter(e.target.value)}
                 className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                title="Filter by failure reason"
+                title="Filter by failure reason — use with bulk retry"
               >
-                <option value="">All Reasons</option>
+                <option value="">All Reasons (failure type)</option>
                 {ERROR_CATEGORY_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
@@ -709,213 +806,305 @@ const SMSMonitoring = () => {
             )}
 
             {/* Bulk actions bar */}
-            <div className="mx-6 mt-4 mb-2 flex flex-wrap items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
-              <span className="text-sm font-medium text-gray-700">
-                {selectedIds.size > 0 ? `${selectedIds.size} selected` : 'Bulk retry'}
-              </span>
+            <div className="mx-4 sm:mx-6 mt-4 mb-2 rounded-xl border-2 border-blue-200 bg-blue-50/80 px-4 py-4 shadow-sm">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex items-start gap-3 min-w-0">
+                  <CheckSquare className="h-5 w-5 shrink-0 text-blue-600 mt-0.5" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-gray-900">
+                      {selectedIds.size > 0
+                        ? `${selectedIds.size} message${selectedIds.size === 1 ? '' : 's'} selected for bulk retry`
+                        : 'Select failed messages to bulk retry'}
+                    </p>
+                    <p className="text-xs text-gray-600 mt-0.5">
+                      {retryableOnPageCount} retryable on this page
+                      {failedOnPageCount > 0 ? ` · ${failedOnPageCount} failed shown` : ''}
+                      {totalCount > 0 ? ` · ${totalCount} match current filter` : ''}
+                    </p>
+                  </div>
+                </div>
 
-              <label className="flex items-center gap-1.5 text-xs text-gray-600" title="Also retry opt-out / invalid / auth / config failures (normally skipped)">
-                <input
-                  type="checkbox"
-                  checked={includePermanent}
-                  onChange={(e) => setIncludePermanent(e.target.checked)}
-                  className="rounded border-gray-300"
-                />
-                Include opt-out / invalid
-              </label>
+                <label className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs text-gray-700 shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={includePermanent}
+                    onChange={(e) => setIncludePermanent(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300 text-blue-600 accent-blue-600"
+                  />
+                  <span>Also retry opt-out / invalid numbers</span>
+                </label>
 
-              <div className="flex flex-wrap items-center gap-2 ml-auto">
-                {selectedIds.size > 0 && (
+                <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2 lg:shrink-0">
+                  {selectedIds.size > 0 && (
+                    <button
+                      type="button"
+                      onClick={clearSelection}
+                      className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800 underline text-left sm:text-center"
+                    >
+                      Clear selection
+                    </button>
+                  )}
                   <button
                     type="button"
-                    onClick={clearSelection}
-                    className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800 underline"
+                    onClick={handleBulkRetrySelected}
+                    disabled={isBulkRetrying || selectedIds.size === 0}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg border-2 border-blue-300 bg-white px-4 py-2 text-sm font-semibold text-blue-800 shadow-sm hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    Clear selection
+                    {isBulkRetrying ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                    Retry selected ({selectedIds.size})
                   </button>
-                )}
-                <button
-                  type="button"
-                  onClick={handleBulkRetrySelected}
-                  disabled={isBulkRetrying || selectedIds.size === 0}
-                  className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-800 shadow-sm hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {isBulkRetrying ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                  Retry selected
-                </button>
-                <button
-                  type="button"
-                  onClick={handleBulkRetryAllMatching}
-                  disabled={isBulkRetrying || totalCount === 0}
-                  className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-                  title="Retry every message matching the current filter (up to 5000)"
-                >
-                  {isBulkRetrying ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                  Retry all matching filter
-                </button>
+                  <button
+                    type="button"
+                    onClick={handleBulkRetryAllMatching}
+                    disabled={isBulkRetrying || totalCount === 0}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-md hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    title="Retry every message matching the current filter (up to 5000)"
+                  >
+                    {isBulkRetrying ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                    Retry all matching filter
+                  </button>
+                </div>
               </div>
             </div>
 
-            <div className="min-w-0 overflow-hidden">
-              <table className="w-full table-fixed">
-                <colgroup>
-                  <col className="w-[4%]" />
-                  <col className="w-[7%]" />
-                  <col className="w-[14%]" />
-                  <col className="w-[24%]" />
-                  <col className="w-[12%]" />
-                  <col className="w-[20%]" />
-                  <col className="w-[14%]" />
-                  <col className="w-[5%]" />
-                </colgroup>
+            {/* Mobile / tablet card list */}
+            <div className="lg:hidden divide-y divide-gray-200 border-t border-gray-200">
+              {messages.map((message) => {
+                const retryable = isRetryableMessage(message);
+                const isFailed = message.status === 'failed';
+                return (
+                  <div
+                    key={message.id}
+                    className={`p-4 ${retryable && isFailed ? 'bg-red-50/60 border-l-4 border-l-red-400' : 'bg-white'}`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="pt-0.5">
+                        {retryable ? (
+                          <RetryCheckbox
+                            checked={selectedIds.has(message.id)}
+                            onChange={() => toggleRowSelection(message.id)}
+                            title="Select for bulk retry"
+                          />
+                        ) : (
+                          <span className="inline-block h-4 w-4" aria-hidden />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1 space-y-2">
+                        <div className="flex flex-wrap items-center gap-2 justify-between">
+                          <div className="flex items-center gap-2">
+                            {getStatusIcon(message.status)}
+                            <span className={getStatusBadge(message.status)}>
+                              {message.status?.charAt(0).toUpperCase() + message.status?.slice(1)}
+                            </span>
+                            {message.direction === 'outbound' ? (
+                              <span className="text-xs font-medium text-blue-600">Out</span>
+                            ) : (
+                              <span className="text-xs font-medium text-green-600">In</span>
+                            )}
+                          </div>
+                          {retryable && renderRetryButton(message, { compact: true })}
+                        </div>
+                        {isFailed && getCategoryLabel(message) && (
+                          <span
+                            className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${CATEGORY_BADGE_CLASSES[message.error_category] || CATEGORY_BADGE_CLASSES.unknown}`}
+                          >
+                            {getCategoryLabel(message)}
+                          </span>
+                        )}
+                        <div className="text-xs text-gray-600">
+                          <span className="font-medium text-gray-900">{message.from_number}</span>
+                          {' → '}
+                          <span>{message.to_number}</span>
+                        </div>
+                        <p
+                          className="text-sm text-gray-900 line-clamp-2 cursor-pointer hover:text-blue-600"
+                          onClick={() => setSelectedMessage(message)}
+                        >
+                          {message.message_content}
+                        </p>
+                        {isFailed && message.error_message && (
+                          <p className="text-xs text-red-600 line-clamp-2">
+                            {sanitizeErrorText(message.error_message, { placeholderForPolluted: true })}
+                          </p>
+                        )}
+                        <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-500">
+                          <span className="truncate max-w-full">{message.location_name || 'N/A'}</span>
+                          <span>{formatCompactDateTime(message.created_at)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              {messages.length === 0 && !isLoading && (
+                <div className="px-6 py-8 text-center text-gray-500">
+                  {hasActiveFilters ? 'No messages match your filters.' : 'No messages found.'}
+                </div>
+              )}
+            </div>
+
+            {/* Desktop table */}
+            <div className="hidden lg:block min-w-0">
+              <table className="w-full table-auto">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-3 py-2.5 text-left">
+                    <th className="w-10 px-2 py-2.5 text-left">
                       <input
                         type="checkbox"
-                        className="rounded border-gray-300"
-                        checked={selectableMessages.length > 0 && selectableMessages.every((m) => selectedIds.has(m.id))}
+                        className={RETRY_CHECKBOX_CLASS}
+                        checked={
+                          selectableMessages.length > 0 &&
+                          selectableMessages.every((m) => selectedIds.has(m.id))
+                        }
                         ref={(el) => {
                           if (el) {
                             const someSelected = selectableMessages.some((m) => selectedIds.has(m.id));
-                            const allSelected = selectableMessages.length > 0 && selectableMessages.every((m) => selectedIds.has(m.id));
+                            const allSelected =
+                              selectableMessages.length > 0 &&
+                              selectableMessages.every((m) => selectedIds.has(m.id));
                             el.indeterminate = someSelected && !allSelected;
                           }
                         }}
                         onChange={togglePageSelection}
                         disabled={selectableMessages.length === 0}
                         title="Select all retryable rows on this page"
+                        aria-label="Select all retryable rows on this page"
                       />
                     </th>
-                    <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Direction
+                    <th className="px-2 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[52px]">
+                      Dir
                     </th>
-                    <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">From / To</th>
-                    <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Message</th>
-                    <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
-                    <th className="px-3 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
-                    <th className="px-3 py-2.5 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    <th className="px-2 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[11%]">
+                      From / To
+                    </th>
+                    <th className="px-2 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-0">
+                      Message
+                    </th>
+                    <th className="px-2 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[16%]">
+                      Status
+                    </th>
+                    <th className="px-2 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[14%]">
+                      Location
+                    </th>
+                    <th className="px-2 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[88px]">
+                      Created
+                    </th>
+                    <th className="sticky right-0 z-10 bg-gray-50 px-2 py-2.5 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-[88px] shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.08)]">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {messages.map((message) => (
-                    <tr key={message.id} className="hover:bg-gray-50">
-                      <td className="px-3 py-3">
-                        {isRetryableMessage(message) ? (
-                          <input
-                            type="checkbox"
-                            className="rounded border-gray-300"
-                            checked={selectedIds.has(message.id)}
-                            onChange={() => toggleRowSelection(message.id)}
-                            title="Select for bulk retry"
-                          />
-                        ) : (
-                          <span className="text-xs text-gray-300">—</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-3">
-                        <div className="flex items-center">
+                  {messages.map((message) => {
+                    const retryable = isRetryableMessage(message);
+                    const isFailed = message.status === 'failed';
+                    const rowHighlight = retryable && isFailed;
+                    return (
+                      <tr
+                        key={message.id}
+                        className={`group ${rowHighlight ? 'bg-red-50/50 hover:bg-red-50/70 border-l-4 border-l-red-400' : 'hover:bg-gray-50'}`}
+                      >
+                        <td className="px-2 py-2.5 align-top">
+                          {retryable ? (
+                            <RetryCheckbox
+                              checked={selectedIds.has(message.id)}
+                              onChange={() => toggleRowSelection(message.id)}
+                              title="Select for bulk retry"
+                            />
+                          ) : (
+                            <span className="text-xs text-gray-300 pl-1">—</span>
+                          )}
+                        </td>
+                        <td className="px-2 py-2.5 align-top">
                           {message.direction === 'outbound' ? (
-                            <div className="flex items-center gap-1.5 text-blue-600" title="Outbound">
-                              <div className="w-3.5 h-3.5 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
-                                <div className="w-1.5 h-1.5 bg-blue-600 rounded-full"></div>
+                            <div className="flex items-center gap-1 text-blue-600" title="Outbound">
+                              <div className="w-3 h-3 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
+                                <div className="w-1.5 h-1.5 bg-blue-600 rounded-full" />
                               </div>
                               <span className="text-xs font-medium">Out</span>
                             </div>
                           ) : (
-                            <div className="flex items-center gap-1.5 text-green-600" title="Inbound">
-                              <div className="w-3.5 h-3.5 rounded-full bg-green-100 flex items-center justify-center shrink-0">
-                                <div className="w-1.5 h-1.5 bg-green-600 rounded-full"></div>
+                            <div className="flex items-center gap-1 text-green-600" title="Inbound">
+                              <div className="w-3 h-3 rounded-full bg-green-100 flex items-center justify-center shrink-0">
+                                <div className="w-1.5 h-1.5 bg-green-600 rounded-full" />
                               </div>
                               <span className="text-xs font-medium">In</span>
                             </div>
                           )}
-                        </div>
-                      </td>
-                      <td className="px-3 py-3 min-w-0">
-                        <div className="text-xs min-w-0">
-                          <div className="flex items-center gap-1 text-gray-900 min-w-0">
-                            <Phone className="w-3 h-3 shrink-0" />
-                            <span className="truncate" title={message.from_number}>{message.from_number}</span>
+                        </td>
+                        <td className="px-2 py-2.5 align-top min-w-0">
+                          <div className="text-xs min-w-0">
+                            <div className="flex items-center gap-1 text-gray-900 min-w-0">
+                              <Phone className="w-3 h-3 shrink-0" />
+                              <span className="truncate block max-w-[120px]" title={message.from_number}>
+                                {message.from_number}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1 text-gray-500 mt-0.5 min-w-0">
+                              <span className="shrink-0">→</span>
+                              <span className="truncate block max-w-[120px]" title={message.to_number}>
+                                {message.to_number}
+                              </span>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-1 text-gray-500 mt-0.5 min-w-0">
-                            <span className="shrink-0">→</span>
-                            <span className="truncate" title={message.to_number}>{message.to_number}</span>
+                        </td>
+                        <td className="px-2 py-2.5 align-top min-w-0 max-w-[280px]">
+                          <div
+                            className="text-xs text-gray-900 line-clamp-2 cursor-pointer hover:text-blue-600 transition-colors"
+                            onClick={() => setSelectedMessage(message)}
+                            title={message.message_content || 'Click to view full message'}
+                          >
+                            {message.message_content}
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-3 py-3 min-w-0">
-                        <div 
-                          className="text-xs text-gray-900 truncate cursor-pointer hover:text-blue-600 transition-colors"
-                          onClick={() => setSelectedMessage(message)}
-                          title={message.message_content || 'Click to view full message'}
-                        >
-                          {message.message_content}
-                        </div>
-                      </td>
-                      <td className="px-3 py-3">
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <span className="shrink-0">{getStatusIcon(message.status)}</span>
-                          <span className={`${getStatusBadge(message.status)} truncate`}>
-                            {message.status?.charAt(0).toUpperCase() + message.status?.slice(1)}
-                          </span>
-                        </div>
-                        {message.status === 'failed' && getCategoryLabel(message) && (
-                          <div className="mt-1">
-                            <span
-                              className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${CATEGORY_BADGE_CLASSES[message.error_category] || CATEGORY_BADGE_CLASSES.unknown}`}
-                            >
-                              {getCategoryLabel(message)}
+                        </td>
+                        <td className="px-2 py-2.5 align-top min-w-0">
+                          <div className="flex items-center gap-1 min-w-0">
+                            <span className="shrink-0">{getStatusIcon(message.status)}</span>
+                            <span className={`${getStatusBadge(message.status)} truncate max-w-full`}>
+                              {message.status?.charAt(0).toUpperCase() + message.status?.slice(1)}
                             </span>
                           </div>
-                        )}
-                        {message.status === 'failed' && message.error_message && (
-                          <div
-                            className="mt-1 text-[11px] leading-snug text-red-600 truncate"
-                            title={sanitizeErrorText(message.error_message, { placeholderForPolluted: true })}
-                          >
-                            {sanitizeErrorText(message.error_message, { placeholderForPolluted: true })}
+                          {isFailed && getCategoryLabel(message) && (
+                            <div className="mt-1">
+                              <span
+                                className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${CATEGORY_BADGE_CLASSES[message.error_category] || CATEGORY_BADGE_CLASSES.unknown}`}
+                              >
+                                {getCategoryLabel(message)}
+                              </span>
+                            </div>
+                          )}
+                          {isFailed && message.error_message && (
+                            <div
+                              className="mt-1 text-[11px] leading-snug text-red-600 line-clamp-2"
+                              title={sanitizeErrorText(message.error_message, { placeholderForPolluted: true })}
+                            >
+                              {sanitizeErrorText(message.error_message, { placeholderForPolluted: true })}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-2 py-2.5 align-top min-w-0">
+                          <div className="text-xs min-w-0">
+                            <div className="font-medium text-gray-900 truncate" title={message.location_name || 'N/A'}>
+                              {message.location_name || 'N/A'}
+                            </div>
                           </div>
-                        )}
-                      </td>
-                      <td className="px-3 py-3 min-w-0">
-                        <div className="text-xs min-w-0">
-                          <div className="font-medium text-gray-900 truncate" title={message.location_name || 'N/A'}>
-                            {message.location_name || 'N/A'}
-                          </div>
-                          <div className="text-gray-500 truncate" title={message.location_id || 'N/A'}>
-                            ID: {message.location_id || 'N/A'}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-3 py-3 text-xs text-gray-500 whitespace-nowrap">
-                        {formatCompactDateTime(message.created_at)}
-                      </td>
-                      <td className="px-3 py-3 text-right">
-                        {isRetryableMessage(message) ? (
-                          <button
-                            type="button"
-                            onClick={() => handleRetryMessage(message)}
-                            disabled={retryingMessageId === message.id}
-                            className="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white p-1.5 text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
-                            title="Retry delivery"
-                          >
-                            {retryingMessageId === message.id ? (
-                              <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" aria-hidden />
-                            ) : (
-                              <RefreshCw className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                            )}
-                          </button>
-                        ) : (
-                          <span className="text-xs text-gray-300">—</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="px-2 py-2.5 align-top text-xs text-gray-500 whitespace-nowrap">
+                          {formatCompactDateTime(message.created_at)}
+                        </td>
+                        <td className={`sticky right-0 z-10 px-2 py-2.5 text-right align-top shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.06)] ${rowHighlight ? 'bg-red-50/50 group-hover:bg-red-50/70' : 'bg-white group-hover:bg-gray-50'}`}>
+                          {retryable ? (
+                            renderRetryButton(message)
+                          ) : (
+                            <span className="text-xs text-gray-300">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                   {messages.length === 0 && !isLoading && (
                     <tr>
-                      <td colSpan="8" className="px-6 py-4 text-center text-gray-500">
+                      <td colSpan="8" className="px-6 py-8 text-center text-gray-500">
                         {hasActiveFilters ? 'No messages match your filters.' : 'No messages found.'}
                       </td>
                     </tr>

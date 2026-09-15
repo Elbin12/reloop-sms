@@ -76,13 +76,13 @@ export const messagesApi = createApi({
         error ? [] : [{ type: 'messagesApi', id: 'LIST' }, { type: 'messagesApi', id }],
     }),
     bulkRetrySmsMessages: builder.mutation({
-      async queryFn({ message_ids, select_all, include_permanent, filters } = {}) {
+      async queryFn({ message_ids, select_all, include_permanent, filters, location_id } = {}) {
         try {
           const body = { include_permanent: !!include_permanent };
+          if (location_id) body.location_id = location_id;
           let url = 'sms/messages/bulk-retry/';
           if (select_all) {
             body.select_all = true;
-            // Pass current filters as query params so the backend re-resolves the set
             const search = new URLSearchParams();
             Object.entries(filters || {}).forEach(([k, v]) => {
               if (v !== undefined && v !== null && v !== '') search.append(k, v);

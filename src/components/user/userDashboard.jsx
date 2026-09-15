@@ -139,14 +139,14 @@ export default function UserDashboard() {
               >
                 One-Time Credit
               </a>
-              <a
+              {/* <a
                 href={`https://link.reloop.pro/widget/form/rsicu8dgNemovlb5j7cb?locationId=${locationId}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="rounded-lg text-gray-600 hover:text-green-600 hover:underline transition-colors font-medium text-xs whitespace-nowrap"
               >
                 Recharge Account
-              </a>
+              </a> */}
             </div>
           </div>
         </div>
